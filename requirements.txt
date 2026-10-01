@@ -3,5 +3,7 @@ pandas
 feedparser
 folium
 streamlit-folium
+beautifulsoup4
+requests
 fpdf2
 pillow
