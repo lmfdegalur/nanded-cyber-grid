@@ -3,3 +3,5 @@ pandas
 feedparser
 folium
 streamlit-folium
+fpdf2
+pillow

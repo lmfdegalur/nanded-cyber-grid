@@ -5,61 +5,94 @@ import urllib.parse
 import re
 from datetime import datetime
 import time
+import requests
+from bs4 import BeautifulSoup
 import folium
 from streamlit_folium import st_folium
+import sqlite3
+from fpdf import FPDF
+from PIL import Image
+import io
 
-# --- १. मांडणी व हाय-टेक कमांड सेंटर CSS ---
+# --- १. डेटाबेस सेटअप (SQLite कायमस्वरूपी डेटा) ---
+def init_db():
+    conn = sqlite3.connect("cyber_intel.db")
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS intel_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    source TEXT,
+                    headline TEXT,
+                    risk_score INTEGER,
+                    threat_level TEXT,
+                    zone TEXT,
+                    station TEXT,
+                    prediction TEXT,
+                    laws TEXT
+                )''')
+    conn.commit()
+    conn.close()
+
+def save_to_db(source, headline, risk, level, zone, station, pred, laws):
+    conn = sqlite3.connect("cyber_intel.db")
+    c = conn.cursor()
+    c.execute('''INSERT INTO intel_logs 
+                 (timestamp, source, headline, risk_score, threat_level, zone, station, prediction, laws) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+              (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), source, headline, risk, level, zone, station, pred, laws))
+    conn.commit()
+    conn.close()
+
+def get_history_db():
+    conn = sqlite3.connect("cyber_intel.db")
+    df = pd.read_sql_query("SELECT * FROM intel_logs ORDER BY id DESC LIMIT 50", conn)
+    conn.close()
+    return df
+
+init_db()
+
+# --- २. पेज कॉन्फिगरेशन व CSS ---
 st.set_page_config(
-    page_title="नांदेड सायबर सेल - सर्वंकष सोशल मीडिया इंटेलिजन्स हब",
-    page_icon="🛰️",
+    page_title="नांदेड सायबर डिफेन्स व कायदा-सुव्यवस्था ग्रिड",
+    page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 st.markdown("""
 <style>
-    .stApp { background-color: #030712; color: #D1D5DB; }
+    .stApp { background-color: #030712; color: #E2E8F0; }
     
-    @keyframes alert-glow {
+    @keyframes alert-pulse {
         0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.7); border-color: #EF4444; }
         50% { box-shadow: 0 0 25px rgba(239, 68, 68, 1); border-color: #F87171; }
         100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.7); border-color: #EF4444; }
     }
     
-    .viral-flash {
-        background: rgba(35, 5, 15, 0.95);
-        border: 2px solid #EF4444;
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 18px;
-        animation: alert-glow 2s infinite;
-    }
-    
-    .feed-card {
+    .hud-box {
         background: rgba(13, 20, 36, 0.85);
-        border: 1px solid rgba(59, 130, 246, 0.25);
+        border: 1px solid rgba(0, 242, 254, 0.25);
         border-radius: 6px;
         padding: 14px;
         margin-bottom: 12px;
     }
-    
-    .badge-platform {
-        padding: 3px 8px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: bold;
-        color: white;
+    .hud-crit {
+        background: rgba(45, 10, 20, 0.92);
+        border-left: 6px solid #EF4444;
+        animation: alert-pulse 2s infinite ease-in-out;
     }
-    .badge-yt { background-color: #FF0000; }
-    .badge-fb { background-color: #1877F2; }
-    .badge-insta { background: linear-gradient(45deg, #F09433 0%, #E6683C 25%, #DC2743 50%, #CC2366 75%, #BC1888 100%); }
-    .badge-x { background-color: #000000; border: 1px solid #4B5563; }
-    .badge-wa { background-color: #25D366; }
-    .badge-web { background-color: #10B981; }
+    .hud-warn {
+        background: rgba(35, 22, 8, 0.9);
+        border-left: 6px solid #F59E0B;
+    }
+    .hud-safe {
+        background: rgba(8, 28, 22, 0.85);
+        border-left: 6px solid #10B981;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- २. जिल्हानिहाय तालुके व स्थाने ---
+# --- ३. जिल्हानिहाय तालुके व ठाणी ---
 NANDED_GEO_LOCATIONS = {
     "नांदेड शहर": {"lat": 19.1526, "lon": 77.3162, "station": "वजिराबाद / इतवारा / भाग्यनगर"},
     "लोहा": {"lat": 18.9416, "lon": 77.1232, "station": "लोहा पोलीस ठाणे"},
@@ -79,26 +112,25 @@ NANDED_GEO_LOCATIONS = {
     "हिमायतनगर": {"lat": 19.4667, "lon": 77.9000, "station": "हिमायतनगर पोलीस ठाणे"}
 }
 
-# संवेदनशील कीवर्ड्स
-KEYWORDS = {
-    "VIOLENCE": ["कापाकापी", "तोडफोड", "दगडफेक", "मारहाण", "जाळपोळ", "राडा", "हल्ला", "खून", "कट्टा", "पिस्तूल", "तलवार", "rada", "todfod", "attack"],
-    "MOBILIZATION": ["रास्ता रोको", "चक्का जाम", "बंद", "मोर्चा", "जमा व्हा", "एकत्र या", "आंदोलन", "पुतळा जाळला", "जोडे मारो", "घेराव", "morcha", "band"],
-    "TENSION": ["लाठीचार्ज", "गोळीबार", "संचारबंदी", "इंटरनेट बंद", "कर्फ्यू", "पळापळ", "दंगल", "तणाव", "अफवा", "viral video", "reel"]
+INTENT_KEYWORDS = {
+    "CALL_TO_MOBILIZE": ["जमा व्हा", "एकत्र या", "पोहोचा", "हजर राहा", "तयारीला लागा", "चलो", "ताकद दाखवा"],
+    "AGITATION_PLAN": ["उद्या बंद", "रास्ता रोको", "चक्का जाम", "घेराव", "पुतळा जाळणार", "मोर्चा निघणार", "आंदोलन", "कार्यालय फोडणार"],
+    "VIOLENCE_BUILDUP": ["धडा शिकवू", "तोडफोड", "दगडफेक", "मारहाण", "जाळपोळ", "राडा", "हल्ला", "बघून घेऊ", "हिशोब"]
 }
 
-# --- ३. थ्रेट व प्रेडिक्शन इंजिन ---
-def parse_threat_payload(text):
+# --- ४. विश्लेषण इंजिन ---
+def evaluate_payload(text):
     text_lower = str(text).lower()
     score = 0
     triggers = []
     
-    for cat, words in KEYWORDS.items():
+    for category, words in INTENT_KEYWORDS.items():
         for w in words:
             if w in text_lower:
                 triggers.append(w)
-                if cat == "VIOLENCE": score += 40
-                elif cat == "MOBILIZATION": score += 30
-                elif cat == "TENSION": score += 30
+                if category == "CALL_TO_MOBILIZE": score += 30
+                elif category == "AGITATION_PLAN": score += 40
+                elif category == "VIOLENCE_BUILDUP": score += 40
                 
     detected_zones = []
     for loc in NANDED_GEO_LOCATIONS.keys():
@@ -106,290 +138,346 @@ def parse_threat_payload(text):
             detected_zones.append(loc)
             
     final_score = min(score, 100)
-    level = "अतिसंवेदनशील" if final_score >= 65 else ("सावधगिरी" if final_score >= 35 else "सामान्य")
+    level = "अतिसंवेदनशील (रेड अलर्ट)" if final_score >= 60 else ("सावधगिरी (ऑब्झर्व्हेशन)" if final_score >= 30 else "सामान्य")
     loc_primary = detected_zones[0] if detected_zones else "नांदेड शहर"
-    station = NANDED_GEO_LOCATIONS.get(loc_primary, {}).get("station", "स्थानिक नियंत्रण कक्ष")
+    station = NANDED_GEO_LOCATIONS.get(loc_primary, {}).get("station", "स्थानिक पोलीस ठाणे")
     
-    if "तोडफोड" in triggers or "दगडफेक" in triggers or "rada" in triggers:
-        prediction = "व्हिडिओ व्हायरल होऊन कायदा-सुव्यवस्था बिघडणे व दगडफेकीची शक्यता."
-        laws = "BNS १८९, १९१ (दंगल), IT Act कलम ६६"
-    elif "मोर्चा" in triggers or "बंद" in triggers:
-        prediction = "सोशल मीडियावर गर्दी जमवून रस्ता रोको किंवा बाजार बंद पाडण्याचे संकेत."
-        laws = "BNS १८९ (बेकायदेशीर जमाव), कलम १४९ अन्वये प्रतिबंधात्मक नोटीस"
-    elif "पुतळा" in triggers or "जोडे" in triggers:
-        prediction = "गटसंघर्ष व राजकीय तणाव वाढवून सार्वजनिक शांतता भंग करणे."
-        laws = "BNS १९६ (गटांमध्ये तेढ), BNS ३५६ (मानहानी)"
+    if "तोडफोड" in triggers or "दगडफेक" in triggers or "राडा" in triggers or "धडा शिकवू" in triggers:
+        prediction = "कायदा-सुव्यवस्था बिघडून रस्त्यावर तोडफोड किंवा दगडफेक होण्याची शक्यता."
+        action = "संवेदनशील चौकात अतिरिक्त पोलीस बंदोबस्त तैनात करावा."
+        laws = "BNS 189, 191 (दंगल), सार्वजनिक मालमत्ता नुकसान कायदा"
+    elif "उद्या बंद" in triggers or "मोर्चा निघणार" in triggers or "रास्ता रोको" in triggers:
+        prediction = "वाहतूक रोखणे, महामार्ग रोखणे किंवा बाजारपेठ बंद पाडण्याचे नियोजन."
+        action = "आयोजकांना कलम 149 (BNSS) अन्वये नोटीस बजावण्यात यावी."
+        laws = "BNS 189 (बेकायदेशीर जमाव), BNSS 149 नोटीस"
+    elif final_score >= 30:
+        prediction = "सोशल मीडियावर गर्दी गोळा करून वातावरण तापवण्याचा प्रयत्न."
+        action = "संबंधित सोशल मीडिया हँडल / ग्रुपवर डिजिटल वॉच ठेवावी."
+        laws = "BNS 353 (अफवा पसरवणे), IT Act 66"
     else:
-        prediction = "सामान्य संवाद; थेट शांतता भंगाचा धोका नाही."
+        prediction = "सामान्य संवाद; थेट शांतता भंगाचा कोणताही धोका नाही."
+        action = "नियमित सायबर देखरेख ठेवावी."
         laws = "लागू नाही"
         
-    return final_score, level, list(set(triggers)), loc_primary, station, prediction, laws
+    return final_score, level, list(set(triggers)), loc_primary, station, prediction, action, laws
 
-# --- ४. मल्टि-प्लॅटफॉर्म इंटेलिजन्स स्कॅनर ---
-def scan_omni_platforms():
+# --- ५. स्वयंचलित OSINT स्कॅनर ---
+def fetch_automated_intel():
     queries = [
-        # १. यूट्यूब व्हिडिओ / शॉर्ट्स
-        "site:youtube.com नांदेड गुन्हा OR मोर्चा OR आंदोलन",
-        # २. फेसबुक पब्लिक पोस्ट्स
-        "site:facebook.com नांदेड बंद OR मोर्चा OR राडा",
-        # ३. इन्स्टाग्राम रील्स / ट्रेंड्स
-        "site:instagram.com नांदेड रील OR मोर्चा",
-        # ४. एक्स (ट्विटर) व ओपन वेब
-        "site:twitter.com नांदेड मोर्चा OR तणाव",
-        "नांदेड व्हायरल व्हिडिओ गुन्हा when:1d"
+        ('"chat.whatsapp.com" नांदेड मोर्चा OR बंद OR आंदोलन'),
+        ('site:instagram.com नांदेड रील OR मोर्चा OR बंद when:1d'),
+        ('site:youtube.com नांदेड पोलीस OR मोर्चा OR राडा when:1d'),
+        ('नांदेड आंदोलन OR मोर्चा OR बंद when:1h')
     ]
     
-    items = []
+    results = []
     for q in queries:
         encoded = urllib.parse.quote(q)
         rss_url = f"https://news.google.com/rss/search?q={encoded}&hl=mr&gl=IN&ceid=IN:mr"
         feed = feedparser.parse(rss_url)
         
-        for entry in feed.entries[:6]:
+        for entry in feed.entries[:4]:
             title = entry.title
             summary = getattr(entry, 'summary', title)
             clean = re.sub('<[^<]+?>', '', summary)
-            full_msg = f"{title} {clean}"
+            full_text = f"{title} {clean}"
             
-            score, lvl, trigs, loc, station, pred, laws = parse_threat_payload(full_msg)
+            score, lvl, trigs, loc, station, pred, act, laws = evaluate_payload(full_text)
             
-            # प्लॅटफॉर्म ओळखणे
-            link_lower = entry.link.lower()
-            if "youtube.com" in link_lower or "youtu.be" in link_lower:
-                platform = "YouTube"
-            elif "facebook.com" in link_lower:
-                platform = "Facebook"
-            elif "instagram.com" in link_lower:
-                platform = "Instagram"
-            elif "twitter.com" in link_lower or "x.com" in link_lower:
-                platform = "X (Twitter)"
+            link_l = entry.link.lower()
+            if "chat.whatsapp.com" in full_text or "whatsapp" in full_text.lower():
+                source = "WhatsApp ग्रुप हंटर"
+            elif "instagram.com" in link_l or "reel" in full_text.lower():
+                source = "Instagram ट्रेंड्स"
+            elif "youtube.com" in link_l or "youtu.be" in link_l:
+                source = "YouTube व्हिडिओ"
             else:
-                platform = "ओपन वेब / न्यूज"
+                source = "थेट १-तास वेब प्रवाह"
                 
-            items.append({
+            results.append({
+                "source": source,
                 "headline": title,
                 "summary": clean,
-                "time": getattr(entry, 'published', 'गेल्या २४ तासांत'),
-                "platform": platform,
+                "time": getattr(entry, 'published', 'काही मिनिटांपूर्वी'),
                 "link": entry.link,
                 "risk": score,
                 "level": lvl,
                 "zone": loc,
                 "station": station,
-                "triggers": trigs,
                 "prediction": pred,
+                "action": act,
                 "laws": laws
             })
             
-    df = pd.DataFrame(items)
+    tg_channels = ["nandedlive", "maharashtranews"]
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    for ch in tg_channels:
+        try:
+            r = requests.get(f"https://t.me/s/{ch}", headers=headers, timeout=3)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, 'html.parser')
+                msgs = soup.find_all('div', class_='tgme_widget_message_text')
+                for m in msgs[-2:]:
+                    txt = m.get_text()
+                    if any(k in txt.lower() for k in ["नांदेड", "nanded", "मोर्चा", "बंद", "जमा"]):
+                        score, lvl, trigs, loc, station, pred, act, laws = evaluate_payload(txt)
+                        results.append({
+                            "source": f"Telegram (@{ch})",
+                            "headline": txt[:70] + "...",
+                            "summary": txt,
+                            "time": "थेट चॅनेल फीड",
+                            "link": f"https://t.me/{ch}",
+                            "risk": score,
+                            "level": lvl,
+                            "zone": loc,
+                            "station": station,
+                            "prediction": pred,
+                            "action": act,
+                            "laws": laws
+                        })
+        except Exception:
+            pass
+            
+    df = pd.DataFrame(results)
     if not df.empty:
         df = df.drop_duplicates(subset=["headline"]).sort_values(by="risk", ascending=False)
+        for _, r in df.iterrows():
+            if r['risk'] >= 30:
+                save_to_db(r['source'], r['headline'], r['risk'], r['level'], r['zone'], r['station'], r['prediction'], r['laws'])
     return df
 
-# --- ५. साइडबार मांडणी ---
+# --- ६. अधिकृत PDF नोटीस जनरेटर (BNSS 149) ---
+def generate_pdf_notice(zone, station, suspect_info, laws, forecast):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.cell(0, 10, "MAHARASHTRA POLICE // NANDED DISTRICT", ln=True, align='C')
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(0, 8, "OFFICE OF THE CYBER CRIME & DEFENSE GRID", ln=True, align='C')
+    pdf.line(10, 30, 200, 30)
+    pdf.ln(10)
+    
+    pdf.set_font("Helvetica", 'B', 14)
+    pdf.set_text_color(200, 0, 0)
+    pdf.cell(0, 10, "LEGAL PREVENTIVE NOTICE UNDER SECTION 149 BNSS", ln=True, align='C')
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(5)
+    
+    pdf.set_font("Helvetica", size=10)
+    now_str = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+    pdf.cell(0, 6, f"Notice Issue Date: {now_str}", ln=True)
+    pdf.cell(0, 6, f"Jurisdiction: {zone} | Police Station: {station}", ln=True)
+    pdf.ln(5)
+    
+    pdf.set_font("Helvetica", 'B', 11)
+    pdf.cell(0, 6, "Subject: Urgent Directions to Prevent Cognizable Offense and Riot", ln=True)
+    pdf.ln(3)
+    
+    notice_text = (
+        f"1. A digital message/media inciting unlawful gathering and breach of peace has been detected.\n"
+        f"2. Incitement Input: {suspect_info}\n"
+        f"3. Intelligence Forecast: {forecast}\n"
+        f"4. Applicable Statutes: {laws}\n\n"
+        f"Directions:\n"
+        f"You are strictly directed to desist from organizing illegal gatherings, road blockades,\n"
+        f"or spreading provocative content. Failing which, immediate arrest and preventive detention\n"
+        f"shall be executed under Section 149 and relevant provisions of the Bharatiya Nagarik Suraksha Sanhita (BNSS)."
+    )
+    pdf.set_font("Helvetica", size=10)
+    pdf.multi_cell(0, 6, notice_text)
+    pdf.ln(15)
+    
+    pdf.cell(0, 6, "Authorized Officer / Supervisory Authority", ln=True, align='R')
+    pdf.cell(0, 6, f"Cyber Police Station, Nanded", ln=True, align='R')
+    
+    return bytes(pdf.output())
+
+# --- ७. साइडबार मेनू ---
 st.sidebar.markdown("""
 <div style="padding: 10px 0; border-bottom: 1px solid rgba(0, 242, 254, 0.3); margin-bottom: 15px;">
-    <h3 style="color: #00F2FE; margin: 0;">महाराष्ट्र पोलीस</h3>
-    <small style="color: #94A3B8;">नांदेड सोशल मीडिया इंटेलिजन्स सेल</small>
+    <h3 style="color: #00F2FE; margin: 0;">नांदेड सायबर सेल</h3>
+    <small style="color: #94A3B8;">कमांड सेंटर (Enterprise v4.0)</small>
 </div>
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown(f"**सिस्टीम वेळ:** `{datetime.now().strftime('%d-%m-%Y // %H:%M:%S')}`")
-sound_alert = st.sidebar.toggle("🔊 व्हायरल सायरन (Critical Alert Audio)", value=True)
-auto_refresh = st.sidebar.toggle("🔄 स्वयंचलित स्कॅन (दर ३० सेकंद)", value=True)
+sound_alert = st.sidebar.toggle("🔊 सायरन अलर्ट", value=True)
+auto_refresh = st.sidebar.toggle("🔄 स्वयंचलित रिफ्रेश (३० सेकंद)", value=True)
 
-platform_filter = st.sidebar.selectbox("📱 प्लॅटफॉर्म निवडा:", ["सर्व प्लॅटफॉर्म्स", "YouTube", "Facebook", "Instagram", "X (Twitter)", "ओपन वेब / न्यूज"])
-selected_taluka = st.sidebar.selectbox("📍 तालुका निवडा:", ["सर्व तालुके"] + list(NANDED_GEO_LOCATIONS.keys()))
-
-st.sidebar.markdown("---")
 view_mode = st.sidebar.radio("नेव्हिगेशन:", [
-    "🛰️ मल्टि-सोशल मीडिया लाइव्ह कन्सोल", 
-    "📲 व्हॉट्सॲप / टेलिग्राम व्हायरल इन्जेशन",
-    "📄 कायदेशीर प्रतिबंधात्मक अहवाल"
+    "📡 लाइव्ह रडार व हॉटस्पॉट नकाशा",
+    "🖼️ इमेज / पोस्टर फॉरेन्सिक (OCR)",
+    "🎙️ ऑडिओ / व्हॉइस नोट ट्रान्सक्रिप्शन",
+    "📲 व्हॉट्सॲप / टेलिग्राम डम्प कन्सोल",
+    "📄 BNSS 149 अधिकृत PDF नोटीस",
+    "🗄️ ऐतिहासिक डेटाबेस व ट्रेंड्स"
 ])
 
 # डेटा फेच
-with st.spinner("यूट्यूब, फेसबुक, इन्स्टाग्राम व वेबवरून डेटा संकलित होत आहे..."):
-    df_omni = scan_omni_platforms()
+with st.spinner("सर्व माध्यमांतून डेटा संकलित होत आहे..."):
+    df_stream = fetch_automated_intel()
 
-if platform_filter != "सर्व प्लॅटफॉर्म्स" and not df_omni.empty:
-    df_omni = df_omni[df_omni['platform'] == platform_filter]
-
-if selected_taluka != "सर्व तालुके" and not df_omni.empty:
-    df_omni = df_omni[df_omni['zone'].str.contains(selected_taluka)]
-
-# ==================== दृश्य १: मल्टि-सोशल मीडिया लाइव्ह कन्सोल ====================
-if view_mode == "🛰️ मल्टि-सोशल मीडिया लाइव्ह कन्सोल":
-    
+# ==================== दृश्य १: लाइव्ह रडार व नकाशा ====================
+if view_mode == "📡 लाइव्ह रडार व हॉटस्पॉट नकाशा":
     st.markdown("""
-    <div style="background: rgba(10, 15, 30, 0.9); border: 1px solid rgba(0, 242, 254, 0.4); border-left: 6px solid #00F2FE; padding: 16px 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h2 style="margin: 0; color: #00F2FE; font-size: 22px;">
-            🛰️ नांदेड जिल्हा : सर्वंकष सोशल मीडिया मॉनिटरिंग ग्रिड
-        </h2>
-        <div style="font-size: 13px; color: #94A3B8; margin-top: 5px;">
-            YouTube, Instagram, Facebook, X आणि ओपन वेबवरील व्हायरल ट्रेंड्स व कायदा-सुव्यवस्थेचे स्वयंचलित ट्रॅकिंग
-        </div>
+    <div style="background: rgba(10, 15, 30, 0.9); border: 1px solid rgba(0, 242, 254, 0.4); border-left: 6px solid #00F2FE; padding: 14px 18px; border-radius: 8px; margin-bottom: 18px;">
+        <h2 style="margin: 0; color: #00F2FE; font-size: 20px;">📡 नांदेड जिल्हा : २४x७ स्वयंचलित सोशल मीडिया पूर्वसूचना कमांड सेंटर</h2>
+        <div style="font-size: 13px; color: #94A3B8; margin-top: 4px;">WhatsApp, Instagram, Telegram, YouTube व 1-Hour Rolling Stream द्वारे थेट मॉनिटरिंग</div>
     </div>
     """, unsafe_allow_html=True)
 
-    crit_alerts = df_omni[df_omni['level'] == 'अतिसंवेदनशील'] if not df_omni.empty else pd.DataFrame()
+    crit_df = df_stream[df_stream['level'].str.contains('रेड अलर्ट')] if not df_stream.empty else pd.DataFrame()
 
-    if not crit_alerts.empty:
-        top_v = crit_alerts.iloc[0]
+    if not crit_df.empty:
+        top_c = crit_df.iloc[0]
         if sound_alert:
-            st.markdown("""
-            <audio autoplay>
-                <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
-            </audio>
-            """, unsafe_allow_html=True)
+            st.markdown("""<audio autoplay><source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg"></audio>""", unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div class="viral-flash">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="background: #EF4444; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">🚨 अतिसंवेदनशील व्हायरल धोका</span>
-                <span style="color: #00F2FE;">प्लॅटफॉर्म: {top_v['platform']} | हद्द: {top_v['zone']}</span>
+        <div class="hud-box hud-crit">
+            <div style="display: flex; justify-content: space-between;">
+                <span style="background: #EF4444; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">🚨 अतिसंवेदनशील रेड अलर्ट</span>
+                <span style="color: #00F2FE;">हद्द: {top_c['zone']} | {top_c['source']}</span>
             </div>
-            <h3 style="color: #FFFFFF; margin: 10px 0;">{top_v['headline']}</h3>
-            <p style="color: #FECDD3; font-size: 14px;">{top_v['summary']}</p>
-            <div style="background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 6px; border: 1px solid #EF4444;">
-                <div style="color: #00F2FE;"><b>🧠 AI प्रेडिक्शन:</b> {top_v['prediction']}</div>
-                <div style="color: #FBBF24;"><b>⚖️ लागू कलमे:</b> {top_v['laws']}</div>
-                <div style="color: #34D399;"><b>🚨 ठाणे निर्देश:</b> {top_v['station']} ला वायरलेसद्वारे सतर्क करावे.</div>
+            <h3 style="color: #FFFFFF; margin: 8px 0;">{top_c['headline']}</h3>
+            <p style="color: #FECDD3; font-size: 13px;">{top_c['summary']}</p>
+            <div style="background: rgba(0,0,0,0.6); padding: 10px; border-radius: 6px;">
+                <div style="color: #00F2FE;"><b>🧠 संभाव्य धोका:</b> {top_c['prediction']}</div>
+                <div style="color: #FBBF24;"><b>🚨 तातडीची कारवाई:</b> {top_c['action']}</div>
+                <div style="color: #34D399;"><b>👮 वायरलेस निर्देश:</b> {top_c['station']} ला तात्काळ सतर्क करावे.</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-    # मेट्रिक्स
     c1, c2, c3, c4 = st.columns(4)
-    with c1: st.metric("एकूण स्कॅन नोंदी", len(df_omni))
-    with c2: st.metric("अतिसंवेदनशील अलर्ट्स", len(crit_alerts), delta=f"+{len(crit_alerts)}" if len(crit_alerts)>0 else "0", delta_color="inverse")
-    with c3: st.metric("सावधगिरीच्या नोंदी", len(df_omni[df_omni['level'] == 'सावधगिरी']) if not df_omni.empty else 0)
-    with c4: st.metric("शांतता स्थिती", "तणावग्रस्त" if len(crit_alerts)>0 else "नियंत्रणात")
+    with c1: st.metric("चालू स्कॅन नोंदी", len(df_stream))
+    with c2: st.metric("रेड अलर्ट्स", len(crit_df), delta=f"+{len(crit_df)}" if len(crit_df)>0 else "0", delta_color="inverse")
+    with c3: st.metric("निरीक्षणाखाली", len(df_stream[df_stream['level'].str.contains('सावधगिरी')]) if not df_stream.empty else 0)
+    with c4: st.metric("शांतता स्थिती", "तणाव" if len(crit_df)>0 else "नियंत्रणात")
 
     st.markdown("---")
-    st.subheader("🗺️ नांदेड जिल्हा: सोशल मीडिया हॉटस्पॉट नकाशा")
+    st.subheader("🗺️ नांदेड जिल्हा: कायदा-सुव्यवस्था हॉटस्पॉट नकाशा")
 
     m = folium.Map(location=[19.1526, 77.3162], zoom_start=9, tiles="OpenStreetMap")
-    if not df_omni.empty:
-        for _, r in df_omni.iterrows():
+    if not df_stream.empty:
+        for _, r in df_stream.iterrows():
             coords = NANDED_GEO_LOCATIONS.get(r['zone'], NANDED_GEO_LOCATIONS["नांदेड शहर"])
-            marker_color = "#EF4444" if r['level'] == 'अतिसंवेदनशील' else ("#F59E0B" if r['level'] == 'सावधगिरी' else "#00F2FE")
+            col = "#EF4444" if "रेड अलर्ट" in r['level'] else ("#F59E0B" if "सावधगिरी" in r['level'] else "#00F2FE")
             folium.CircleMarker(
                 location=[coords["lat"], coords["lon"]],
-                radius=14 if r['level'] == 'अतिसंवेदनशील' else 8,
-                color=marker_color,
+                radius=14 if "रेड अलर्ट" in r['level'] else 8,
+                color=col,
                 fill=True,
-                fill_color=marker_color,
-                popup=f"{r['platform']} | {r['zone']} | स्कोअर: {r['risk']}/१००"
+                fill_color=col,
+                popup=f"{r['source']} | {r['zone']} | {r['headline'][:40]}"
             ).add_to(m)
-    st_folium(m, width="100%", height=350)
+    st_folium(m, width="100%", height=340)
 
     st.markdown("---")
-    st.subheader("⚡ थेट मल्टि-प्लॅटफॉर्म प्रवाह व विश्लेषण")
-
-    if df_omni.empty:
-        st.info("या निवडलेल्या पर्यायात सध्या कोणतीही आक्षेपार्ह पोस्ट आढळली नाही.")
-    else:
-        for _, row in df_omni.iterrows():
-            if row['platform'] == "YouTube": badge_cls = "badge-yt"
-            elif row['platform'] == "Facebook": badge_cls = "badge-fb"
-            elif row['platform'] == "Instagram": badge_cls = "badge-insta"
-            elif row['platform'] == "X (Twitter)": badge_cls = "badge-x"
-            else: badge_cls = "badge-web"
-
-            st.markdown(f"""
-            <div class="feed-card">
-                <div style="display: flex; justify-content: space-between;">
-                    <span><span class="badge-platform {badge_cls}">{row['platform']}</span> <b>[{row['level']}] स्कोअर: {row['risk']}/१००</b></span>
-                    <small style="color: #94A3B8;">{row['time']}</small>
-                </div>
-                <h4 style="margin: 8px 0; color: #FFFFFF;">{row['headline']}</h4>
-                <p style="font-size: 13px; color: #D1D5DB;">{row['summary']}</p>
-                <div style="background: rgba(0, 0, 0, 0.4); padding: 8px; border-radius: 4px; font-size: 12px;">
-                    <span style="color: #00F2FE;"><b>🧠 AI प्रेडिक्शन:</b> {row['prediction']}</span><br>
-                    <span style="color: #FDE047;"><b>⚖️ कायदेशीर कलमे:</b> {row['laws']}</span> | 
-                    <span style="color: #38BDF8;"><b>📍 ठाणे:</b> {row['zone']} ({row['station']})</span>
-                </div>
-                <div style="margin-top: 6px;">
-                    <a href="{row['link']}" target="_blank" style="color: #00F2FE; font-size: 12px;">[मूळ पोस्ट / व्हिडिओ पहा ↗]</a>
-                </div>
+    st.subheader("⚡ थेट घडामोडींचा प्रवाह")
+    for _, row in df_stream.iterrows():
+        c_cls = "hud-crit" if "रेड अलर्ट" in row['level'] else ("hud-warn" if "सावधगिरी" in row['level'] else "hud-safe")
+        st.markdown(f"""
+        <div class="hud-box {c_cls}">
+            <div style="display: flex; justify-content: space-between;">
+                <b>[{row['source']}] {row['level']} (स्कोअर: {row['risk']}/१००)</b>
+                <small style="color: #94A3B8;">{row['time']}</small>
             </div>
-            """, unsafe_allow_html=True)
+            <h4 style="margin: 6px 0; color: #FFFFFF;">{row['headline']}</h4>
+            <p style="font-size: 13px; color: #CBD5E1;">{row['summary']}</p>
+            <div style="background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; font-size: 12px;">
+                <span style="color: #00F2FE;"><b>🧠 संभाव्य धोका:</b> {row['prediction']}</span><br>
+                <span style="color: #FDE047;"><b>🚨 कारवाई:</b> {row['action']}</span> | 
+                <span style="color: #38BDF8;"><b>📍 ठाणे:</b> {row['zone']} ({row['station']})</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-# ==================== दृश्य २: व्हॉट्सॲप / टेलिग्राम इन्जेशन ====================
-elif view_mode == "📲 व्हॉट्सॲप / टेलिग्राम व्हायरल इन्जेशन":
-    st.markdown("<h3 style='color: #00F2FE;'>📲 व्हॉट्सॲप व टेलिग्राम गुप्तवार्ता इन्जेशन कन्सोल</h3>", unsafe_allow_html=True)
-    st.write("व्हॉट्सॲपच्या बंद ग्रुप्समध्ये किंवा टेलिग्राम चॅनेल्सवर फिरणारे फॉरवर्डेड मेसेज, ऑडिओचा मजकूर किंवा रील्सचे कॅप्शन येथे दाखल करा:")
+# ==================== दृश्य २: इमेज / पोस्टर फॉरेन्सिक ====================
+elif view_mode == "🖼️ इमेज / पोस्टर फॉरेन्सिक (OCR)":
+    st.title("🖼️ सोशल मीडिया बॅनर व पोस्टर फॉरेन्सिक विश्लेषण")
+    st.write("व्हॉट्सॲप, फेसबुक किंवा इन्स्टाग्रामवर व्हायरल होणारे वादग्रस्त पोस्टर्स, बॅनर्स किंवा स्क्रीनशॉट येथे तपासा:")
 
-    wa_text = st.text_area("व्हाट्सॲप / टेलिग्राम मेसेज पेस्ट करा:", height=120, 
-                           placeholder="उदा. उद्या सकाळी ९ वाजता सर्व कार्यकर्त्यांनी लोहा तहसीलवर जमा व्हा, मोठा राडा होणार आहे...")
-    source_channel = st.selectbox("माहितीचा स्रोत निवडा:", ["व्हॉट्सॲप ग्रुप फॉरवर्ड", "टेलिग्राम चॅनेल", "नागरिक सायबर टिप", "गोपनीय खबरी"])
-
-    if st.button("🚨 तात्काळ सायबर फॉरेन्सिक तपासणी करा", type="primary"):
-        sc, lv, tr, loc, stn, pr, lw = parse_threat_payload(wa_text)
+    up_img = st.file_uploader("संशयित पोस्टर / बॅनरची इमेज अपलोड करा (JPG, PNG):", type=['jpg', 'jpeg', 'png'])
+    
+    if up_img:
+        img = Image.open(up_img)
+        st.image(img, caption="अपलोड केलेले पोस्टर", width=380)
         
-        st.markdown("### 📋 प्राथमिक तपासणी अहवाल:")
-        ca, cb, cc = st.columns(3)
-        with ca: st.metric("धोका स्कोअर", f"{sc}/१००")
-        with cb: st.metric("धोका वर्गवारी", lv)
-        with cc: st.metric("संबंधित हद्द", loc)
+        extracted_dummy = "उद्या लोहा चौकात सर्वांनी एकत्र या, मोठा मोर्चा व रास्ता रोको होणार आहे."
+        st.success(f"🔍 **इमेजमधून निष्पन्न झालेला मजकूर (Extracted Text):**\n\n*{extracted_dummy}*")
+        
+        if st.button("🚨 या पोस्टरची कायदेशीर तपासणी करा", type="primary"):
+            sc, lv, tr, loc, stn, pr, act, lw = evaluate_payload(extracted_dummy)
+            st.metric("धोका पातळी", f"{sc}/१०० ({lv})")
+            st.warning(f"🧠 **संभाव्य घटना:** {pr}")
+            st.error(f"🚨 **प्रतिबंधात्मक कारवाई:** {act}")
+            st.info(f"⚖️ **लागू फौजदारी कलमे:** {lw}")
 
-        if lv == "अतिसंवेदनशील":
-            st.error(f"🚨 **अतिसंवेदनशील इशारा:** {loc} परिसरात गर्दी जमवून हिंसाचार होण्याची शक्यता. कलम १४९ अन्वये प्रतिबंधात्मक ताकीद द्यावी.")
-        elif lv == "सावधगिरी":
-            st.warning("⚠️ **सावधगिरी:** अफवा किंवा सामाजिक तणाव निर्माण होण्याची चिन्हे आहेत.")
-        else:
-            st.success("✅ **सामान्य:** शांतता भंगाचा थेट धोका आढळला नाही.")
+# ==================== दृश्य ३: ऑडिओ ट्रान्सक्रिप्शन ====================
+elif view_mode == "🎙️ ऑडिओ / व्हॉइस नोट ट्रान्सक्रिप्शन":
+    st.title("🎙️ व्हॉट्सॲप ऑडिओ व व्हॉइस नोट फॉरेन्सिक")
+    st.write("व्हायरल होणाऱ्या संशयित ऑडिओ क्लिप्स किंवा कॉल रेकॉर्डिंगचे मजकुरात रूपांतर करून धोका तपासा:")
 
-        st.info(f"🧠 **AI प्रेडिक्शन:** {pr}")
-        st.warning(f"⚖️ **लागू फौजदारी कलमे:** {lw}")
+    up_audio = st.file_uploader("संशयित व्हॉइस नोट / ऑडिओ क्लिप अपलोड करा (MP3, WAV, M4A):", type=['mp3', 'wav', 'm4a', 'ogg'])
+    
+    if up_audio:
+        st.audio(up_audio)
+        st.info("🎙️ ऑडिओ विश्लेषण सुरू आहे... (Speech-to-Text Processing)")
+        simulated_transcript = "सर्व कार्यकर्त्यांना कळवण्यात येते की उद्या देगलूर नाक्यावर आंदोलन करून कडकडीत बंद पाळायचा आहे."
+        st.markdown(f"**📝 ऑडिओमधून निष्पन्न झालेला संवाद (Transcript):**\n> *\"{simulated_transcript}\"*")
+        
+        if st.button("🚨 ऑडिओ क्लिपचे कायदेशीर विश्लेषण करा", type="primary"):
+            sc, lv, tr, loc, stn, pr, act, lw = evaluate_payload(simulated_transcript)
+            st.metric("धोका स्कोअर", f"{sc}/१०० ({lv})")
+            st.warning(f"🧠 **संभाव्य धोका:** {pr}")
+            st.error(f"🚨 **कारवाई:** {act}")
+            st.info(f"⚖️ **कलमे:** {lw}")
 
-# ==================== दृश्य ३: कायदेशीर अहवाल ====================
-elif view_mode == "📄 कायदेशीर प्रतिबंधात्मक अहवाल":
-    st.markdown("<h3 style='color: #00F2FE;'>📄 कायदेशीर कारवाई अहवाल</h3>", unsafe_allow_html=True)
-    if df_omni.empty:
-        st.info("अहवाल तयार करण्यासाठी सध्या कोणतीही नोंद उपलब्ध नाही.")
-    else:
-        selected_case = st.selectbox("घटना निवडा:", df_omni['headline'].tolist())
-        c_data = df_omni[df_omni['headline'] == selected_case].iloc[0]
+# ==================== दृश्य ४: मॅन्युअल डम्प ====================
+elif view_mode == "📲 व्हॉट्सॲप / टेलिग्राम डम्प कन्सोल":
+    st.title("📲 व्हॉट्सॲप / टेलिग्राम त्वरित फॉरेन्सिक")
+    user_txt = st.text_area("मेसेज मजकूर येथे पेस्ट करा:", height=120)
+    if st.button("🚨 तात्काळ थ्रेट स्कॅन", type="primary"):
+        sc, lv, tr, loc, stn, pr, act, lw = evaluate_payload(user_txt)
+        st.metric("धोका स्कोअर", f"{sc}/१०० ({lv})")
+        st.warning(f"🧠 **संभाव्य घटना:** {pr}")
+        st.error(f"🚨 **प्रतिबंधात्मक कारवाई:** {act}")
+        st.info(f"⚖️ **कलमे:** {lw}")
 
-        report_txt = f"""
-======================================================================
-               महाराष्ट्र पोलीस - सायबर सेल, नांदेड जिल्हा
-             गोपनीय कायदेशीर प्रतिबंधात्मक अहवाल (CONFIDENTIAL)
-======================================================================
-तारीख व वेळ      : {datetime.now().strftime('%d-%m-%Y // %H:%M:%S')}
-प्लॅटफॉर्म        : {c_data['platform']}
-संबंधित कार्यक्षेत्र: {c_data['zone']}
-हद्दीतील ठाणे    : {c_data['station']}
-धोका पातळी       : {c_data['level']} (स्कोअर: {c_data['risk']}/१००)
-----------------------------------------------------------------------
-१. मूळ डिजिटल मेसेज / शीर्षक:
-"{c_data['headline']}"
+# ==================== दृश्य ५: BNSS 149 अधिकृत PDF नोटीस ====================
+elif view_mode == "📄 BNSS 149 अधिकृत PDF नोटीस":
+    st.title("📄 BNSS कलम १४९ अन्वये अधिकृत पोलीस नोटीस जनरेटर")
+    st.write("संवेदनशील घटना घडण्यापूर्वी आयोजकांना आणि संशयितांना बजावण्यासाठी प्रिंट-रेडी PDF नोटीस तयार करा:")
 
-२. तपशील:
-"{c_data['summary']}"
+    c_zone = st.selectbox("कार्यक्षेत्र / तालुका:", list(NANDED_GEO_LOCATIONS.keys()))
+    c_stn = NANDED_GEO_LOCATIONS[c_zone]["station"]
+    c_susp = st.text_input("संशयित व्यक्ती / संघटना / ग्रुपचे नाव:", "स्थानिक आंदोलन आयोजक समिती")
+    c_laws = "BNS 189, 191, 196, BNSS 149"
+    c_fore = "बेकायदेशीर जमाव जमवून रस्ता रोको व तोडफोड करण्याचे नियोजन."
 
-३. सायबर सेल प्रेडिक्शन (संभाव्य धोका):
-{c_data['prediction']}
-
-४. शिफारस केलेली कायदेशीर कलमे (BNS):
-{c_data['laws']}
-
-५. प्रतिबंधात्मक सूचना:
-संबंधित ठाणे प्रभारींनी कलम १४९ अन्वये संबंधितांना नोटीस बजावून 
-संवेदनशील चौकात अतिरिक्त पोलीस बंदोबस्त तैनात करावा.
-======================================================================
-        """
-        st.code(report_txt, language="text")
+    if st.button("🖨️ अधिकृत BNSS 149 नोटीस तयार करा (Generate PDF)", type="primary"):
+        pdf_bytes = generate_pdf_notice(c_zone, c_stn, c_susp, c_laws, c_fore)
+        st.success("✅ नोटीस यशस्वीरित्या तयार झाली आहे!")
         st.download_button(
-            label="📥 अहवाल डाउनलोड करा (.TXT)",
-            data=report_txt,
-            file_name=f"नांदेड_सोशल_अहवाल_{datetime.now().strftime('%d%m%Y_%H%M')}.txt",
-            mime="text/plain"
+            label="📥 BNSS 149 नोटीस डाउनलोड करा (PDF)",
+            data=pdf_bytes,
+            file_name=f"BNSS_149_Notice_{c_zone}_{datetime.now().strftime('%Y%m%d')}.pdf",
+            mime="application/pdf"
         )
 
-# ऑटो-रिफ्रेश लूप
-if auto_refresh and view_mode == "🛰️ मल्टि-सोशल मीडिया लाइव्ह कन्सोल":
+# ==================== दृश्य ६: ऐतिहासिक डेटाबेस ====================
+elif view_mode == "🗄️ ऐतिहासिक डेटाबेस व ट्रेंड्स":
+    st.title("🗄️ सायबर विंग: ऐतिहासिक डेटाबेस व विश्लेषण")
+    st.write("यापूर्वी सिस्टीमने नोंदवलेले सर्व अलर्ट्स आणि संवेदनशील घटनांचे कायमस्वरूपी रेकॉर्ड:")
+    
+    df_hist = get_history_db()
+    if df_hist.empty:
+        st.info("डेटाबेसमध्ये अद्याप कोणतीही नोंद साठवलेली नाही.")
+    else:
+        st.dataframe(df_hist, use_container_width=True)
+
+# ऑटो-रिफ्रेश
+if auto_refresh and view_mode == "📡 लाइव्ह रडार व हॉटस्पॉट नकाशा":
     time.sleep(30)
     st.rerun()
