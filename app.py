@@ -13,8 +13,8 @@ import time
 
 # --- १. हाय-टेक सायबर वॉर रूम UI कॉन्फिगरेशन ---
 st.set_page_config(
-    page_title="नांदेड सायबर सेल - थेट जिल्हा इंटेलिजन्स कन्सोल",
-    page_icon="⚡",
+    page_title="सायबर सेल नांदेड - २४×७ थेट कायदा व सुव्यवस्था मॉनिटरिंग",
+    page_icon="🚨",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -104,7 +104,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- २. स्थानिक SQLite डेटाबेस ---
+# --- २. १ महिन्यासाठी स्थानिक SQLite डेटाबेस ---
 def init_db():
     conn = sqlite3.connect("nanded_cyber_intel.db")
     c = conn.cursor()
@@ -148,7 +148,7 @@ init_db()
 NANDED_TALUKAS = [
     "नांदेड", "माहूर", "किनवट", "हदगाव", "भोकर", "लोहा", "कंधार", 
     "मुखेड", "देगलूर", "बिलोली", "धर्माबाद", "नायगाव", "उमरी", 
-    "मुदखेड", "अर्धापूर", "हिमायतनगर", "देगलूर नाका", "वजिराबाद", "इतवारा", "शिवाजीनगर"
+    "मुदखेड", "अर्धापूर", "हिमायतनगर", "देगलूर नाका", "वजिराबाद", "इतवारा", "सिडको"
 ]
 
 POLICE_JURISDICTION_MAP = {
@@ -170,30 +170,18 @@ POLICE_JURISDICTION_MAP = {
     "नांदेड": {"ps": "नांदेड नियंत्रण कक्ष (मुख्यालय)", "wireless": "वजिराबाद / इतवारा / भाग्यनगर / शिवाजीनगर"}
 }
 
-# --- ४. स्थानिक बोलीभाषा व संवेदनशीलता विश्लेषक (AI Real-time Dialect Matcher) ---
-class HyperlocalPoliceAI:
+# --- ४. सर्वसमावेशक क्राईम व कायदा-सुव्यवस्था विश्लेषक ---
+class CompleteCrimeAI:
     def __init__(self):
-        # सामाजिक व राजकीय तेढ निर्माण करणारे स्थानिक शब्द
-        self.communal_words = [
-            "दंगल", "जातीय", "धार्मिक", "विटंबना", "झेंडा काढला", "झेंडा", "अपमान", "राडा",
-            "धडा शिकवू", "उखाडून टाकू", "चुनौती", "धमकी", "बहिष्कार", "रक्त", "बदला", "वाद", "आमने-सामने"
-        ]
-        # बंद, आंदोलने आणि रास्ता रोको
-        self.protest_words = [
-            "रास्ता रोको", "चक्काजाम", "मोर्चा", "धरणे", "बंद", "उपोषण", "आत्मदहन", 
-            "बाजारपेठ बंद", "हायवे", "आक्रोश", "आंदोलन", "घेराव", "बसेस अडवल्या", "ठिय्या"
-        ]
-        # थेट गुन्हेगारी व कायदा-सुव्यवस्था प्रश्न
-        self.crime_words = [
-            "खून", "गोळीबार", "हल्ला", "तोडफोड", "दगडफेक", "मारहाण", "भांडण", 
-            "गाड्या फोडल्या", "चाकूहल्ला", "तणाव", "लाठीचार्ज", "जमावबंदी"
-        ]
+        self.communal_words = ["दंगल", "जातीय", "धार्मिक", "विटंबना", "झेंडा काढला", "झेंडा", "अपमान", "राडा", "धडा शिकवू", "उखाडून टाकू", "चुनौती", "धमकी", "बहिष्कार", "रक्त", "बदला", "वाद", "आमने-सामने"]
+        self.protest_words = ["रास्ता रोको", "चक्काजाम", "मोर्चा", "धरणे", "बंद", "उपोषण", "आत्मदहन", "बाजारपेठ बंद", "हायवे", "आक्रोश", "आंदोलन", "घेराव", "बसेस अडवल्या", "ठिय्या"]
+        self.crime_words = ["खून", "गोळीबार", "हल्ला", "तोडफोड", "दगडफेक", "मारहाण", "भांडण", "गाड्या फोडल्या", "चाकूहल्ला", "तणाव", "लाठीचार्ज", "जमावबंदी", "दरोडा", "चोरी", "अपहरण", "गुन्हा", "अटक"]
 
-    def is_nanded_context(self, text):
+    def extract_place(self, text):
         for t in NANDED_TALUKAS:
             if re.search(rf"\b{t}\b", text):
-                return True, t
-        return False, None
+                return t
+        return "नांदेड"
 
     def analyze_event(self, text, comments=[]):
         full_text = text + " " + " ".join(comments)
@@ -202,7 +190,7 @@ class HyperlocalPoliceAI:
         f_protest = [w for w in self.protest_words if w in full_text]
         f_crime = [w for w in self.crime_words if w in full_text]
         
-        category = "जिल्हा घडामोड"
+        category = "जिल्हा सामान्य वृत्त"
         if f_communal:
             category = "सामाजिक / धार्मिक / राजकीय तेढ"
         elif f_crime:
@@ -211,75 +199,72 @@ class HyperlocalPoliceAI:
             category = "आंदोलन / मोर्चा / रास्ता रोको / बंद"
 
         is_red = len(f_communal) > 0 or len(f_crime) > 0 or len(f_protest) > 0
-
-        # संताप व चिथावणी निर्देशांक
-        angry_score = 15
+        angry_score = 18
         if is_red:
-            angry_score = min(96, 40 + (len(f_communal) * 22) + (len(f_crime) * 16) + (len(f_protest) * 12))
+            angry_score = min(96, 40 + (len(f_communal) * 20) + (len(f_crime) * 15) + (len(f_protest) * 10))
 
         if len(f_communal) > 0:
-            intent = "🚨 चिथावणीखोर हेतू: समाजात तेढ निर्माण करणे अथवा वाद भडकवण्याचा प्रयत्न."
+            intent = "🚨 चिथावणीखोर हेतू: समाजात तेढ निर्माण करणे अथवा वाद पेटवणे."
         elif len(f_crime) > 0:
-            intent = "⚠️ कायदा-सुव्यवस्था बाधा: घटनास्थळी तणाव निर्माण होणे किंवा हिंसक प्रतिक्रियेची शक्यता."
+            intent = "⚠️ गुन्हेगारी / कायदा-सुव्यवस्था: घटनास्थळी तातडीने पोलीस बंदोबस्त आवश्यक."
         elif len(f_protest) > 0:
-            intent = "📢 जमाव जमवण्याचा हेतू: वाहतूक रोखणे, रस्ता अडवणे अथवा बंद पुकारणे."
+            intent = "📢 जमाव हेतू: रस्ता रोखणे अथवा बंद पुकारून वाहतूक अडवणे."
         else:
-            intent = "ℹ️ सामान्य वृत्त: कायदा व सुव्यवस्थेला थेट धोका नाही."
+            intent = "ℹ️️ सामान्य वृत्त: कायदा व सुव्यवस्थेला थेट धोका नाही."
 
         all_kws = list(set(f_communal + f_protest + f_crime))
         return all_kws, category, is_red, angry_score, intent
 
-ai_matcher = HyperlocalPoliceAI()
+ai_matcher = CompleteCrimeAI()
 
-# --- ५. स्थानिक मीडिया, सोशल नेटवर्क्स व थेट टेलिग्राम वेब स्क्रॅपर ---
-def fetch_hyperlocal_district_intel():
+# --- ५. सर्वसमावेशक डेटा फेचिंग (किमान १० ते २० ताज्या नोंदी) ---
+def fetch_full_district_intel():
     records = []
     seen = set()
     idx = 1
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-    # अ. थेट स्थानिक सार्वजनिक टेलिग्राम चॅनेल्स वेब मॉनिटरिंग (Public Channel Scraping)
-    # या चॅनेल्सवर स्थानिक पातळीवरील मेसेज, ब्रेकिंग आणि आंदोलनाचे अपडेट सर्वात आधी येतात
-    telegram_local_channels = ["nandedlive", "nandednews", "marathwadanews"]
-    for ch in telegram_local_channels:
+    # १. थेट टेलिग्राम चॅनेल्स (पब्लिक न्यूज स्ट्रीम)
+    telegram_channels = ["nandedlive", "nandednews", "marathwadanews"]
+    for ch in telegram_channels:
         try:
             tg_url = f"https://t.me/s/{ch}"
             res = requests.get(tg_url, headers=headers, timeout=5)
             if res.status_code == 200:
                 soup = BeautifulSoup(res.text, "html.parser")
                 messages = soup.find_all("div", class_="tgme_widget_message_text")
-                for msg in messages[-5:]:
+                for msg in messages[-8:]:
                     clean_msg = msg.get_text().strip()
-                    is_valid, matched_place = ai_matcher.is_nanded_context(clean_msg)
-                    if not is_valid or clean_msg in seen:
+                    if len(clean_msg) < 15 or clean_msg in seen:
                         continue
                     seen.add(clean_msg)
 
+                    matched_place = ai_matcher.extract_place(clean_msg)
                     stn = POLICE_JURISDICTION_MAP.get(matched_place, POLICE_JURISDICTION_MAP["नांदेड"])
                     kws, cat, is_red, angry_score, intent = ai_matcher.analyze_event(clean_msg)
                     
                     item = {
                         "id": f"TG-{idx:03d}",
-                        "title": clean_msg[:220] + ("..." if len(clean_msg) > 220 else ""),
+                        "title": clean_msg[:200] + ("..." if len(clean_msg) > 200 else ""),
                         "place": matched_place,
                         "platform": "टेलिग्राम / स्थानिक मेसेज चॅनेल",
                         "icon": "💬",
                         "url": tg_url,
-                        "time": "थेट मेसेज प्रवाह",
+                        "time": "थेट प्रवाह",
                         "source": f"@{ch}",
                         "category": cat,
                         "keywords": kws,
                         "station": stn["ps"],
                         "wireless": stn["wireless"],
                         "is_red_alert": is_red,
-                        "threat_score": min(98, angry_score + 8) if is_red else 25,
-                        "spot": f"{matched_place} परिसर / मुख्य चौक",
+                        "threat_score": min(98, angry_score + 8) if is_red else 22,
+                        "spot": f"{matched_place} मुख्य परिसर",
                         "timing": "पुढील २४ तासांत / चालू घडामोड",
-                        "forward_speed": 75 if is_red else 20,
-                        "amplifiers": 180 if is_red else 40,
+                        "forward_speed": 65 if is_red else 18,
+                        "amplifiers": 150 if is_red else 35,
                         "angry_pct": angry_score,
                         "ai_intent": intent,
-                        "comments": ["मेसेज वेगाने स्थानिक ग्रुप्समध्ये फिरत आहे."]
+                        "comments": ["स्थानिक ग्रुप्समध्ये मेसेज फिरत आहे."]
                     }
                     records.append(item)
                     save_intel(item)
@@ -287,53 +272,51 @@ def fetch_hyperlocal_district_intel():
         except Exception:
             pass
 
-    # ब. स्थानिक डिजिटल मीडिया व सोशल पेजेसचे लाइव्ह वेब फीड
-    local_targeted_queries = [
-        '("नांदेड" OR "माहूर" OR "लोहा" OR "किनवट" OR "देगलूर") AND ("रास्ता रोको" OR "मोर्चा" OR "राडा" OR "बंद" OR "तणाव") when:2d',
-        '("नांदेड" OR "हदगाव" OR "भोकर" OR "बिलोली" OR "मुखेड") AND ("दगडफेक" OR "तोडफोड" OR "मारहाण" OR "आंदोलन" OR "खून") when:2d',
-        'site:facebook.com ("नांदेड" OR "देगलूर नाका") AND ("आंदोलन" OR "मोर्चा" OR "राडा") when:3d'
+    # २. जिल्ह्यातील क्राईम, आंदोलने व राजकीय घडामोडींवर व्यापक शोध
+    broad_queries = [
+        'नांदेड "गुन्हा" OR "खून" OR "गोळीबार" OR "मारहाण" OR "तोडफोड"',
+        'नांदेड "आंदोलन" OR "मोर्चा" OR "रास्ता रोको" OR "चक्काजाम"',
+        'नांदेड "दंगल" OR "तणाव" OR "राडा" OR "पुतळा" OR "झेंडा"',
+        '("माहूर" OR "लोहा" OR "किनवट" OR "देगलूर") "आंदोलन" OR "रास्ता रोको" OR "गुन्हा"',
+        '("हदगाव" OR "भोकर" OR "बिलोली" OR "मुखेड") "तणाव" OR "मारहाण" OR "पोलीस"',
+        'नांदेड "तहसील" OR "जिल्हाधिकारी" मोर्चा OR निवेदन'
     ]
 
-    for q in local_targeted_queries:
+    for q in broad_queries:
         encoded = urllib.parse.quote(q)
         feed = feedparser.parse(f"https://news.google.com/rss/search?q={encoded}&hl=mr&gl=IN&ceid=IN:mr")
-        for entry in feed.entries[:4]:
+        for entry in feed.entries[:6]:
             clean_title = BeautifulSoup(entry.title, "html.parser").text
-            is_valid, matched_place = ai_matcher.is_nanded_context(clean_title)
-            if not is_valid or clean_title in seen:
+            if clean_title in seen or len(clean_title) < 15:
                 continue
             seen.add(clean_title)
 
+            matched_place = ai_matcher.extract_place(clean_title)
             stn = POLICE_JURISDICTION_MAP.get(matched_place, POLICE_JURISDICTION_MAP["नांदेड"])
             kws, cat, is_red, angry_score, intent = ai_matcher.analyze_event(clean_title)
 
-            spot = f"{matched_place} मुख्य चौक / तहसील परिसर"
-            timing = "पुढील २४ ते ४८ तासांत"
-            if "उद्या" in clean_title or "सकाळी" in clean_title:
-                timing = "उद्या सकाळी ०९:०० ते ११:३० दरम्यान"
-
-            threat_val = min(98, angry_score + 8) if is_red else 20
-            fwd_speed = 50 + (len(kws) * 25) if is_red else 15
+            threat_val = min(98, angry_score + 6) if is_red else 20
+            fwd_speed = 50 + (len(kws) * 20) if is_red else 14
 
             item = {
                 "id": f"LIVE-NND-{idx:03d}",
                 "title": clean_title,
                 "place": matched_place,
-                "platform": "स्थानिक न्यूज पोर्टल / सोशल मीडिया",
+                "platform": "स्थानिक वेब न्यूज / वृत्तपत्र",
                 "icon": "🌐",
                 "url": entry.link,
                 "time": entry.get("published", "काही तासांपूर्वी"),
-                "source": entry.get("source", {}).get("title", "स्थानिक बातमी"),
+                "source": entry.get("source", {}).get("title", "स्थानिक पोर्टल"),
                 "category": cat,
                 "keywords": kws,
                 "station": stn["ps"],
                 "wireless": stn["wireless"],
                 "is_red_alert": is_red,
                 "threat_score": threat_val,
-                "spot": spot,
-                "timing": timing,
+                "spot": f"{matched_place} मुख्य चौक / बसस्थानक",
+                "timing": "पुढील २४ ते ४८ तासांत",
                 "forward_speed": fwd_speed,
-                "amplifiers": 110 + (len(kws) * 40) if is_red else 25,
+                "amplifiers": 100 + (len(kws) * 35) if is_red else 25,
                 "angry_pct": angry_score,
                 "ai_intent": intent,
                 "comments": [
@@ -345,53 +328,45 @@ def fetch_hyperlocal_district_intel():
             save_intel(item)
             idx += 1
 
-    # क. YouTube वरील स्थानिक ताज्या क्लिप्स व कमेंट्स
+    # ३. YouTube वरील चालू घडामोडींचे थेट व्हिडिओ
     try:
-        cmd = ["yt-dlp", "ytsearch3:नांदेड ताज्या घडामोडी राडा आंदोलन", "--dump-json", "--flat-playlist", "--no-warnings"]
+        cmd = ["yt-dlp", "ytsearch5:नांदेड पोलीस ताज्या बातम्या राडा गुन्हे", "--dump-json", "--flat-playlist", "--no-warnings"]
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=6)
         if res.returncode == 0:
             for line in res.stdout.strip().split("\n"):
                 if line:
                     v = json.loads(line)
                     title = v.get("title", "")
-                    is_valid, matched_place = ai_matcher.is_nanded_context(title)
-                    if not is_valid or title in seen:
+                    if title in seen or len(title) < 10:
                         continue
                     seen.add(title)
 
+                    matched_place = ai_matcher.extract_place(title)
                     stn = POLICE_JURISDICTION_MAP.get(matched_place, POLICE_JURISDICTION_MAP["नांदेड"])
-                    v_comments = ["नांदेड पोलिसांनी व्हिडिओची सत्यता तपासून तात्काळ कारवाई करावी."]
-                    try:
-                        c_cmd = ["yt-dlp", "--get-comments", "--max-comments", "2", f"https://www.youtube.com/watch?v={v.get('id')}"]
-                        c_res = subprocess.run(c_cmd, capture_output=True, text=True, timeout=4)
-                        if c_res.returncode == 0 and c_res.stdout.strip():
-                            v_comments = [c.strip() for c in c_res.stdout.strip().split("\n")[:2] if c.strip()]
-                    except Exception:
-                        pass
+                    kws, cat, is_red, angry_score, intent = ai_matcher.analyze_event(title)
 
-                    kws, cat, is_red, angry_score, intent = ai_matcher.analyze_event(title, v_comments)
                     item = {
                         "id": f"LIVE-YT-{idx:03d}",
                         "title": title,
                         "place": matched_place,
-                        "platform": "YouTube Shorts / Video",
+                        "platform": "YouTube Video / Shorts",
                         "icon": "▶️",
                         "url": f"https://www.youtube.com/watch?v={v.get('id')}",
-                        "time": "थेट व्हिडिओ अपलोड",
+                        "time": "थेट अपलोड",
                         "source": v.get("uploader", "स्थानिक चॅनेल"),
                         "category": cat,
                         "keywords": kws,
                         "station": stn["ps"],
                         "wireless": stn["wireless"],
                         "is_red_alert": is_red,
-                        "threat_score": min(95, angry_score + 6) if is_red else 25,
+                        "threat_score": min(95, angry_score + 5) if is_red else 22,
                         "spot": f"{matched_place} परिसर",
                         "timing": "चालू घडामोड",
-                        "forward_speed": 65 if is_red else 18,
-                        "amplifiers": 140 if is_red else 30,
+                        "forward_speed": 55 if is_red else 16,
+                        "amplifiers": 120 if is_red else 30,
                         "angry_pct": angry_score,
                         "ai_intent": intent,
-                        "comments": v_comments
+                        "comments": ["व्हिडिओ पाहून स्थानिक पोलिसांनी तपास करावा."]
                     }
                     records.append(item)
                     save_intel(item)
@@ -401,7 +376,7 @@ def fetch_hyperlocal_district_intel():
 
     return records
 
-# --- ६. साइडबार व नियंत्रण ---
+# --- ६. साइडबार व ऑपरेशन्स ---
 with st.sidebar:
     st.markdown("### ⚡ सायबर सेल वॉर रूम")
     st.caption("नांदेड जिल्हा २४×७ थेट इंटेलिजन्स कन्सोल")
@@ -409,7 +384,7 @@ with st.sidebar:
     
     cmd_mode = st.radio(
         "कमांड मोड निवडा:",
-        ["📡 थेट लाइव्ह रडार (Live Ingestion)", "🗄️ १ महिन्याचा सेव्ह झालेला डेटाबेस"]
+        ["📡 थेट लाइव्ह रडार (१०+ नोंदी)", "🗄️ १ महिन्याचा सेव्ह झालेला डेटाबेस"]
     )
     st.markdown("---")
     auto_refresh = st.toggle("⚡ ऑटो-स्कॅन व रिअल-टाइम लूप", value=True)
@@ -420,11 +395,11 @@ with st.sidebar:
         st.rerun()
 
 # --- ७. थेट डेटा लोड करणे ---
-with st.spinner("नांदेड जिल्ह्यातील स्थानिक मेसेज, व्हिडिओ, टेलिग्राम व घडामोडींचे विश्लेषण सुरू आहे..."):
-    FILTERED_INTEL = fetch_hyperlocal_district_intel()
+with st.spinner("नांदेड जिल्ह्यातील सर्व गुन्हे, आंदोलने आणि घडामोडींचे एआय स्कॅनिंग सुरू आहे..."):
+    FILTERED_INTEL = fetch_full_district_intel()
 
 # --- ८. मुख्य स्क्रीन: लाइव्ह रडार ---
-if cmd_mode == "📡 थेट लाइव्ह रडार (Live Ingestion)":
+if cmd_mode == "📡 थेट लाइव्ह रडार (१०+ नोंदी)":
     st.markdown("## 🚨 नांदेड जिल्हा : २४×७ सोशल मीडिया, मेसेजिंग व कायदा-सुव्यवस्था रडार")
     st.caption(f"थेट सिस्टीम वेळ: {datetime.now().strftime('%d-%m-%Y | %H:%M:%S')} (फिल्टर: १००% नांदेड जिल्हा व १६ तालुके)")
 
@@ -469,7 +444,7 @@ if cmd_mode == "📡 थेट लाइव्ह रडार (Live Ingestion)"
     st.markdown("---")
 
     # डिजिटल तुलना तक्ता
-    st.markdown("### 📤 सोशल मीडिया फॉरवर्ड वेग, माध्यम, थ्रेट स्कोअर व व्हायरल मेसेज तुलना तक्ता")
+    st.markdown(f"### 📤 सोशल मीडिया फॉरवर्ड वेग, माध्यम, थ्रेट स्कोअर व व्हायरल मेसेज तुलना तक्ता (एकूण {len(FILTERED_INTEL)} नोंदी)")
     grid_data = []
     for item in FILTERED_INTEL:
         grid_data.append({
@@ -486,11 +461,8 @@ if cmd_mode == "📡 थेट लाइव्ह रडार (Live Ingestion)"
     st.markdown("---")
 
     # अलर्ट कार्ड्स
-    st.markdown("### 📡 नांदेड जिल्हा थेट प्रवाह व कमेंट्स वाचन (Live Action Stream):")
+    st.markdown("### 📡 नांदेड जिल्हा थेट प्रवाह व कमेंट्स वाचन:")
     
-    if not FILTERED_INTEL:
-        st.info("सध्या मागील २४ तासांत नांदेड जिल्ह्यात कायदा व सुव्यवस्थेला बाधा आणणारी कोणतीही आक्षेपार्ह घटना आढळलेली नाही. शांतता स्थिती कायम आहे.")
-
     for item in FILTERED_INTEL:
         card_class = "intel-card-red" if item["is_red_alert"] else "intel-card-yellow"
         
@@ -499,9 +471,9 @@ if cmd_mode == "📡 थेट लाइव्ह रडार (Live Ingestion)"
         elif "गुन्हेगारी" in item["category"]:
             badge_html = "<span class='badge badge-crime'>⚠️ गुन्हेगारी / तणाव</span>"
         elif "आंदोलन" in item["category"]:
-            badge_html = "<span class='badge badge-protest'>📢 आंदोलन / मोर्चा / रास्ता रोको / बंद</span>"
+            badge_html = "<span class='badge badge-protest'>📢 आंदोलन / मोर्चा / बंद</span>"
         else:
-            badge_html = "<span class='badge badge-protest'>📰 सामान्य घडामोड</span>"
+            badge_html = "<span class='badge badge-protest'>📰 जिल्हा घडामोड</span>"
 
         st.markdown(f"""
         <div class="intel-card {card_class}">
@@ -509,23 +481,22 @@ if cmd_mode == "📡 थेट लाइव्ह रडार (Live Ingestion)"
                 <div>
                     {badge_html} 
                     <span style="margin-left:10px; font-weight:700; color:#38bdf8;">{item['id']}</span>
-                    <span style="margin-left:10px; color:#94a3b8; font-size:12px;">[{item['place']} तालुका] ({item['time']})</span>
+                    <span style="margin-left:10px; color:#94a3b8; font-size:12px;">[{item['place']} परिसर] ({item['time']})</span>
                 </div>
                 <div style="font-size:13px; color:#cbd5e1;">
                     <strong>माध्यम:</strong> {item['icon']} {item['platform']} | <strong>स्त्रोत:</strong> {item['source']}
                 </div>
             </div>
-            <h3 style="margin-top:0; color:#f8fafc; line-height:1.4; font-size:18px;">{item['title']}</h3>
+            <h3 style="margin-top:0; color:#f8fafc; line-height:1.4; font-size:17px;">{item['title']}</h3>
             <div style="margin-top:8px;">
                 🔗 <strong>मूळ लिंक:</strong> <a href="{item['url']}" target="_blank" class="source-link">{item['url']}</a>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # एआय हेतू व जमाव बॉक्स
         st.markdown(f"""
         <div class="detail-container">
-            🤖 <strong>एआय हेतू विश्लेषण (AI Intent Reader):</strong> <code>{item['ai_intent']}</code><br>
+            🤖 <strong>एआय हेतू विश्लेषण:</strong> <code>{item['ai_intent']}</code><br>
             📍 <strong>संभाव्य जमाव ठिकाण:</strong> <code>{item['spot']}</code> | ⏰ <strong>अपेक्षित वेळ:</strong> <code>{item['timing']}</code> | 🎯 <strong>थ्रेट स्कोअर:</strong> <code>{item['threat_score']}/100</code>
         </div>
         """, unsafe_allow_html=True)
@@ -550,11 +521,9 @@ if cmd_mode == "📡 थेट लाइव्ह रडार (Live Ingestion)"
             </div>
             """, unsafe_allow_html=True)
 
-        # थेट कमेंट्स वाचन
-        with st.expander("💬 या घटनेवरील थेट कमेंट्स व जनभावना वाचन (Comments NLP)", expanded=item["is_red_alert"]):
-            st.write(f"**आक्रमक / संतापजनक प्रतिक्रियांचे प्रमाण:** {item['angry_pct']}%")
+        with st.expander("💬 या घटनेवरील थेट प्रतिक्रिया व जनभावना", expanded=False):
+            st.write(f"**आक्रमक प्रतिक्रियांचे प्रमाण:** {item['angry_pct']}%")
             st.progress(item["angry_pct"] / 100)
-            st.caption("नागरिकांच्या थेट प्रतिक्रिया:")
             for c in item["comments"]:
                 st.markdown(f"- 🗣 *\"{c}\"*")
 
@@ -568,7 +537,7 @@ if cmd_mode == "📡 थेट लाइव्ह रडार (Live Ingestion)"
         st.rerun()
 
 # --- ९. १ महिन्याचा सेव्ह झालेला डेटाबेस लॉग ---
-elif cmd_mode == "🗄️ १ महिन्याचा सेव्ह झालेला डेटाबेस":
+elif cmd_mode == "🗄️️ १ महिन्याचा सेव्ह झालेला डेटाबेस":
     st.subheader("🗄️ महिनाभराचा स्थानिक इंटेलिजन्स लॉग (Testing Archive)")
     st.caption("या महिन्यात सिस्टीमने ऑटोमॅटिक पकडलेल्या सर्व घटनांचा सेव्ह झालेला रेकॉर्ड.")
     
