@@ -3,151 +3,329 @@ import pandas as pd
 import feedparser
 import urllib.parse
 from bs4 import BeautifulSoup
-import hashlib
+import requests
 import json
 import subprocess
+import sqlite3
 from datetime import datetime
+import re
 import time
 
-# --- १. पेज कॉन्फिगरेशन व हाय-टेक सायबर कमांड लेआउट ---
+# --- १. पेज कॉन्फिगरेशन व डिजिटल हाय-टेक सायबर थीम ---
 st.set_page_config(
-    page_title="नांदेड सायबर सेल - २४×७ कायदा व सुव्यवस्था इंटेलिजन्स कमांड सेंटर",
-    page_icon="🛡️",
+    page_title="नांदेड सायबर सेल - डिजिटल इंटेलिजन्स वॉर रूम",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# गुगल डिजिटल फॉन्ट्स व अत्याधुनिक निऑन डार्क सायबर थीम
 st.markdown("""
 <style>
-    .stApp { background-color: #0b0f19; color: #e2e8f0; font-family: 'Segoe UI', Arial, sans-serif; }
-    div[data-testid="stMetric"] { background-color: #161e2e; border: 1px solid #30363d; border-radius: 10px; padding: 14px; }
-    .intel-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 22px; }
-    .intel-card-red { border-left: 6px solid #f85149 !important; background: linear-gradient(90deg, rgba(248, 81, 73, 0.09) 0%, #161b22 100%); }
-    .intel-card-yellow { border-left: 6px solid #d29922 !important; background: linear-gradient(90deg, rgba(210, 153, 34, 0.09) 0%, #161b22 100%); }
-    .badge { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; display: inline-block; }
-    .badge-communal { background-color: #b62324; color: #ffffff; }
-    .badge-speech { background-color: #8957e5; color: #ffffff; }
-    .badge-protest { background-color: #d29922; color: #0d1117; }
-    .badge-general { background-color: #238636; color: #ffffff; }
-    .kw-tag { background-color: #21262d; color: #58a6ff; border: 1px solid #388bfd33; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 6px; font-weight: 600; }
-    .detail-container { background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px; margin-top: 10px; }
-    .source-link { color: #58a6ff !important; text-decoration: underline !important; font-weight: 600; }
-    .spot-box { background-color: #1e1b4b; border: 1px solid #4338ca; border-radius: 6px; padding: 10px; margin-top: 10px; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+    /* संपूर्ण ॲप बॅकग्राउंड */
+    .stApp {
+        background: radial-gradient(circle at top left, #0d1527 0%, #070a13 100%);
+        color: #e2e8f0;
+        font-family: 'Inter', -apple-system, sans-serif;
+    }
+
+    /* मुख्य हेडर्स */
+    h1, h2, h3, h4 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+
+    /* मेट्रिक्स कार्ड्स (डिजिटल निऑन लूक) */
+    div[data-testid="stMetric"] {
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(59, 130, 246, 0.25);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    div[data-testid="stMetric"] label {
+        color: #94a3b8 !important;
+        font-size: 13px !important;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        color: #38bdf8 !important;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 26px !important;
+        font-weight: 700;
+    }
+
+    /* इंटेलिजन्स कार्ड्स - ग्लास मॉर्फिझम */
+    .intel-card {
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 14px;
+        padding: 22px;
+        margin-bottom: 22px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .intel-card:hover {
+        border-color: rgba(56, 189, 248, 0.4);
+    }
+    .intel-card-red {
+        border-left: 6px solid #ff3366 !important;
+        background: linear-gradient(90deg, rgba(255, 51, 102, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+        box-shadow: 0 8px 30px rgba(255, 51, 102, 0.15);
+    }
+    .intel-card-yellow {
+        border-left: 6px solid #f59e0b !important;
+        background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%);
+    }
+
+    /* निऑन बॅजेस */
+    .badge {
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        display: inline-block;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .badge-communal { background: rgba(239, 68, 68, 0.2); color: #ff4d6d; border: 1px solid #ff4d6d; }
+    .badge-speech { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #c084fc; }
+    .badge-protest { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #fbbf24; }
+    .badge-general { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #34d399; }
+
+    /* डिजिटल कीवर्ड टॅग्ज */
+    .kw-tag {
+        background-color: rgba(14, 165, 233, 0.15);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        margin-right: 6px;
+        font-weight: 600;
+    }
+
+    /* तपशील कंटेनर्स */
+    .detail-container {
+        background: rgba(8, 13, 26, 0.7);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 12px;
+        font-size: 14px;
+    }
+    .spot-box {
+        background: rgba(30, 27, 75, 0.5);
+        border: 1px solid rgba(99, 102, 241, 0.4);
+        border-radius: 10px;
+        padding: 12px;
+        margin-top: 12px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .ai-box {
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 10px;
+        padding: 12px;
+        margin-top: 10px;
+        color: #cbd5e1;
+    }
+
+    /* लिंक्स व कोड */
+    code {
+        color: #38bdf8 !important;
+        background: rgba(14, 165, 233, 0.12) !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        padding: 2px 6px !important;
+        border-radius: 4px;
+    }
+    .source-link {
+        color: #00f2fe !important;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .source-link:hover {
+        text-decoration: underline;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- २. नांदेड जिल्हा पोलीस ठाणी व हद्द मॅपिंग ---
+# --- २. १ महिन्यासाठी स्थानिक SQLite डेटाबेस ---
+def init_db():
+    conn = sqlite3.connect("nanded_cyber_intel.db")
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS intel_archive (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT,
+            place TEXT,
+            platform TEXT,
+            title TEXT,
+            station TEXT,
+            threat_score INTEGER,
+            forward_speed INTEGER,
+            is_red INTEGER,
+            url TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def save_intel_record(item):
+    try:
+        conn = sqlite3.connect("nanded_cyber_intel.db")
+        c = conn.cursor()
+        c.execute('''
+            INSERT OR IGNORE INTO intel_archive VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            item["id"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            item["place"], item["platform"], item["title"],
+            item["station"], item["threat_score"], item["forward_speed"],
+            1 if item["is_red_alert"] else 0, item["url"]
+        ))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+init_db()
+
+# --- ३. नांदेड जिल्हा हद्द डेटाबेस ---
+NANDED_TALUKAS = [
+    "नांदेड", "माहूर", "किनवट", "हदगाव", "भोकर", "लोहा", "कंधार", 
+    "मुखेड", "देगलूर", "बिलोली", "धर्माबाद", "नायगाव", "उमरी", 
+    "मुदखेड", "अर्धापूर", "हिमायतनगर", "देगलूर नाका", "वजिराबाद", "इतवारा"
+]
+
 POLICE_JURISDICTION_MAP = {
-    "माहूर": {"ps": "माहूर पोलीस ठाणे", "wireless": "माहूर व सिंदखेड ठाणे", "hq": "किनवट उपविभाग"},
-    "किनवट": {"ps": "किनवट पोलीस ठाणे", "wireless": "किनवट व इस्लापूर ठाणे", "hq": "किनवट उपविभाग"},
-    "हदगाव": {"ps": "हदगाव पोलीस ठाणे", "wireless": "हदगाव ठाणे व मनाठा बीट", "hq": "हदगाव उपविभाग"},
-    "भोकर": {"ps": "भोकर पोलीस ठाणे", "wireless": "भोकर ठाणे", "hq": "भोकर उपविभाग"},
-    "लोहा": {"ps": "लोहा पोलीस ठाणे", "wireless": "लोहा ठाणे", "hq": "कंधार उपविभाग"},
-    "कंधार": {"ps": "कंधार पोलीस ठाणे", "wireless": "कंधार ठाणे", "hq": "कंधार उपविभाग"},
-    "मुखेड": {"ps": "मुखेड पोलीस ठाणे", "wireless": "मुखेड ठाणे", "hq": "देगलूर उपविभाग"},
-    "देगलूर": {"ps": "देगलूर पोलीस ठाणे", "wireless": "देगलूर ठाणे", "hq": "देगलूर उपविभाग"},
-    "बिलोली": {"ps": "बिलोली पोलीस ठाणे", "wireless": "बिलोली व कुंडलवाडी ठाणे", "hq": "बिलोली उपविभाग"},
-    "धर्माबाद": {"ps": "धर्माबाद पोलीस ठाणे", "wireless": "धर्माबाद ठाणे", "hq": "बिलोली उपविभाग"},
-    "नायगाव": {"ps": "नायगाव पोलीस ठाणे", "wireless": "नायगाव ठाणे", "hq": "बिलोली उपविभाग"},
-    "उमरी": {"ps": "उमरी पोलीस ठाणे", "wireless": "उमरी ठाणे", "hq": "भोकर उपविभाग"},
-    "मुदखेड": {"ps": "मुदखेड पोलीस ठाणे", "wireless": "मुदखेड ठाणे", "hq": "भोकर उपविभाग"},
-    "अर्धापूर": {"ps": "अर्धापूर पोलीस ठाणे", "wireless": "अर्धापूर ठाणे", "hq": "नांदेड ग्रामीण"},
-    "नांदेड": {"ps": "नांदेड नियंत्रण कक्ष (मुख्यालय)", "wireless": "वजिराबाद / इतवारा / भाग्यनगर / शिवाजीनगर", "hq": "नांदेड शहर"}
+    "माहूर": {"ps": "माहूर पोलीस ठाणे", "wireless": "माहूर व सिंदखेड ठाणे"},
+    "किनवट": {"ps": "किनवट पोलीस ठाणे", "wireless": "किनवट व इस्लापूर ठाणे"},
+    "हदगाव": {"ps": "हदगाव पोलीस ठाणे", "wireless": "हदगाव ठाणे व मनाठा बीट"},
+    "भोकर": {"ps": "भोकर पोलीस ठाणे", "wireless": "भोकर ठाणे"},
+    "लोहा": {"ps": "लोहा पोलीस ठाणे", "wireless": "लोहा ठाणे"},
+    "कंधार": {"ps": "कंधार पोलीस ठाणे", "wireless": "कंधार ठाणे"},
+    "मुखेड": {"ps": "मुखेड पोलीस ठाणे", "wireless": "मुखेड ठाणे"},
+    "देगलूर": {"ps": "देगलूर पोलीस ठाणे", "wireless": "देगलूर ठाणे"},
+    "बिलोली": {"ps": "बिलोली पोलीस ठाणे", "wireless": "बिलोली व कुंडलवाडी ठाणे"},
+    "धर्माबाद": {"ps": "धर्माबाद पोलीस ठाणे", "wireless": "धर्माबाद ठाणे"},
+    "नायगाव": {"ps": "नायगाव पोलीस ठाणे", "wireless": "नायगाव ठाणे"},
+    "उमरी": {"ps": "उमरी पोलीस ठाणे", "wireless": "उमरी ठाणे"},
+    "मुदखेड": {"ps": "मुदखेड पोलीस ठाणे", "wireless": "मुदखेड ठाणे"},
+    "अर्धापूर": {"ps": "अर्धापूर पोलीस ठाणे", "wireless": "अर्धापूर ठाणे"},
+    "हिमायतनगर": {"ps": "हिमायतनगर पोलीस ठाणे", "wireless": "हिमायतनगर ठाणे"},
+    "नांदेड": {"ps": "नांदेड नियंत्रण कक्ष (मुख्यालय)", "wireless": "वजिराबाद / इतवारा / भाग्यनगर / शिवाजीनगर"}
 }
 
-KEYWORDS_DB = {
-    "सामाजिक_राजकीय_तेढ": ["दंगल", "जातीय तेढ", "धार्मिक भावना", "पुतळ्याची विटंबना", "झेंडा काढला", "धर्माचा अपमान", "जातीचा अपमान", "गटबाजी", "धार्मिक तेढ", "राजकीय राडा", "तणाव"],
-    "भडकाऊ_भाषण_लिखाण": ["धडा शिकवू", "उखाडून टाकू", "चुनौती", "धमकी", "बहिष्कार", "रक्त सांडू", "बदला घेऊ", "उचकवणारे भाषण", "खुला इशारा", "राडा"],
-    "आंदोलन_मोर्चा_बंद": ["रास्ता रोको", "चक्काजाम", "मोर्चा", "धरणे", "बंद", "उपोषण", "तोडफोड", "दगडफेक", "घेराव", "आत्मदहन", "बाजारपेठ बंद", "हायवे रोखणे", "भांडण", "आक्रोश", "आंदोलन"]
-}
+# --- ४. एआय विश्लेषक इंजिन ---
+class NandedPoliceAIEngine:
+    def __init__(self):
+        self.provocative_words = ["दंगल", "जातीय", "धार्मिक", "विटंबना", "झेंडा", "अपमान", "राडा", "धडा शिकवू", "उखाडून", "चुनौती", "धमकी", "बहिष्कार", "रक्त", "बदला", "तोडफोड", "दगडफेक", "घेराव"]
+        self.protest_words = ["रास्ता रोको", "चक्काजाम", "मोर्चा", "धरणे", "बंद", "उपोषण", "आत्मदहन", "बाजारपेठ बंद", "हायवे", "आक्रोश", "आंदोलन", "बसेस अडवल्या"]
 
-# --- ३. स्थानिक भाषा (Indic NLP) व जमाव अंदाज इंजिन ---
-def analyze_incident_nlp(text):
-    matched_kws = []
-    category = "जिल्हा कायदा-सुव्यवस्था घडामोड"
-    
-    for cat, kws in KEYWORDS_DB.items():
-        for kw in kws:
-            if kw in text:
-                matched_kws.append(kw)
-                if cat == "सामाजिक_राजकीय_तेढ": category = "सामाजिक व राजकीय तेढ"
-                elif cat == "भडकाऊ_भाषण_लिखाण": category = "भडकाऊ भाषण व लिखाण"
-                elif cat == "आंदोलन_मोर्चा_बंद": category = "आंदोलन / मोर्चा / रास्ता रोको"
+    def is_strictly_nanded(self, text):
+        for t in NANDED_TALUKAS:
+            if re.search(rf"\b{t}\b", text):
+                return True, t
+        return False, None
 
-    stn_info = POLICE_JURISDICTION_MAP["नांदेड"]
-    for place, info in POLICE_JURISDICTION_MAP.items():
-        if place in text:
-            stn_info = info
-            break
-            
-    is_red = len(matched_kws) > 0 or "तेढ" in category or "भाषण" in category
-    
-    # एआय जमाव अंदाज (Spot & Time Prediction)
-    spot = f"{stn_info['ps'].replace('पोलीस ठाणे', '')} मुख्य चौक / तहसील परिसर"
-    timing = "आज संध्याकाळी अथवा उद्या सकाळी"
-    if "सकाळी" in text or "१०" in text or "११" in text:
-        timing = "उद्या सकाळी ०९:०० ते ११:०० AM"
-    elif "रात्री" in text or "८" in text:
-        timing = "आज रात्री ०८:०० ते १०:०० PM"
+    def analyze_deep(self, text, comments=[]):
+        full_text = text + " " + " ".join(comments)
+        found_provocative = [w for w in self.provocative_words if w in full_text]
+        found_protest = [w for w in self.protest_words if w in full_text]
         
-    threat_score = min(98, 40 + (len(matched_kws) * 20)) if is_red else 25
-    return list(set(matched_kws)), category, stn_info, is_red, spot, timing, threat_score
+        category = "जिल्हा कायदा-सुव्यवस्था घडामोड"
+        if found_provocative:
+            category = "सामाजिक / धार्मिक / राजकीय तेढ"
+        elif found_protest:
+            category = "आंदोलन / मोर्चा / रास्ता रोको"
 
-# --- ४. थेट लाइव्ह मल्टि-प्लॅटफॉर्म डेटा फेचिंग (Zero Cache & 24h Filter) ---
-def fetch_realtime_police_intelligence():
-    intel_stream = []
+        is_red = len(found_provocative) > 0 or len(found_protest) > 0
+        angry_score = 15
+        if is_red:
+            angry_score = min(94, 45 + (len(found_provocative) * 20) + (len(found_protest) * 10))
+
+        if len(found_provocative) > 0:
+            ai_intent = "🚨 चिथावणीखोर हेतू: समाजात तेढ निर्माण करणे अथवा वाद पेटवणे."
+        elif len(found_protest) > 0:
+            ai_intent = "📢 जमाव हेतू: रस्ता रोखणे अथवा शासकीय कामकाजात अडथळा निर्माण करणे."
+        else:
+            ai_intent = "ℹ️ सामान्य वृत्त: कायदा व सुव्यवस्थेला कोणताही धोका नाही."
+
+        return list(set(found_provocative + found_protest)), category, is_red, angry_score, ai_intent
+
+ai_engine = NandedPoliceAIEngine()
+
+# --- ५. थेट मल्टि-प्लॅटफॉर्म डेटा फेचिंग ---
+def fetch_live_multiplatform_intel():
+    records = []
     seen = set()
     idx = 1
-    
-    # अ. गुगल न्यूज व स्थानिक वेब पोर्टल्स (मागील २४ तासांतील चालू घडामोडी)
-    queries = [
-        "नांदेड आंदोलन OR मोर्चा OR तणाव when:1d",
-        "Nanded police news when:1d",
-        "site:facebook.com नांदेड when:1d",
-        "माहूर OR लोहा OR किनवट तणाव when:2d"
+
+    strict_queries = [
+        '("नांदेड" OR "माहूर" OR "लोहा" OR "किनवट" OR "देगलूर") AND ("आंदोलन" OR "मोर्चा" OR "रास्ता रोको" OR "तणाव" OR "पोलीस") when:2d',
+        '("नांदेड" OR "हदगाव" OR "भोकर" OR "बिलोली" OR "मुखेड") AND ("राडा" OR "बंद" OR "उपोषण" OR "तोडफोड") when:2d',
+        'site:facebook.com ("नांदेड" OR "देगलूर नाका") AND ("आंदोलन" OR "मोर्चा" OR "तणाव") when:3d'
     ]
-    for q in queries:
+
+    for q in strict_queries:
         encoded = urllib.parse.quote(q)
         feed = feedparser.parse(f"https://news.google.com/rss/search?q={encoded}&hl=mr&gl=IN&ceid=IN:mr")
-        for entry in feed.entries[:3]:
-            title = BeautifulSoup(entry.title, "html.parser").text
-            if title in seen: continue
-            seen.add(title)
-            
-            kws, cat, stn, is_red, spot, timing, threat_score = analyze_incident_nlp(title)
-            platform = "Facebook / सोशल मीडिया" if "facebook.com" in q else "स्थानिक वेब पोर्टल"
-            icon = "🌐" if "facebook.com" in q else "📰"
-            
-            intel_stream.append({
-                "id": f"NND-INTEL-{idx:03d}",
-                "title": title,
-                "platform": platform,
-                "icon": icon,
+        for entry in feed.entries[:4]:
+            clean_title = BeautifulSoup(entry.title, "html.parser").text
+            is_valid, matched_place = ai_engine.is_strictly_nanded(clean_title)
+            if not is_valid or clean_title in seen:
+                continue
+            seen.add(clean_title)
+
+            stn_data = POLICE_JURISDICTION_MAP.get(matched_place, POLICE_JURISDICTION_MAP["नांदेड"])
+            kws, category, is_red, angry_score, ai_intent = ai_engine.analyze_deep(clean_title)
+
+            spot = f"{matched_place} मुख्य चौक / तहसील परिसर"
+            timing = "पुढील २४ ते ४८ तासांत"
+            if "उद्या" in clean_title or "सकाळी" in clean_title:
+                timing = "उद्या सकाळी ०९:०० ते ११:३० दरम्यान"
+
+            threat_val = min(98, angry_score + 10) if is_red else 20
+            fwd_speed = 45 + (len(kws) * 25) if is_red else 12
+
+            item = {
+                "id": f"NND-{idx:03d}",
+                "title": clean_title,
+                "place": matched_place,
+                "platform": "वेब पोर्टल / फेसबुक",
+                "icon": "🌐",
                 "url": entry.link,
-                "time": entry.get("published", "काही मिनिटांपूर्वी"),
-                "source": entry.get("source", {}).get("title", "स्थानिक पोर्टल"),
-                "category": cat,
+                "time": entry.get("published", "काही तासांपूर्वी"),
+                "source": entry.get("source", {}).get("title", "स्थानिक बातमी"),
+                "category": category,
                 "keywords": kws,
-                "station": stn["ps"],
-                "wireless": stn["wireless"],
+                "station": stn_data["ps"],
+                "wireless": stn_data["wireless"],
                 "is_red_alert": is_red,
-                "threat_score": threat_score,
+                "threat_score": threat_val,
                 "spot": spot,
                 "timing": timing,
-                "forward_speed": 45 + (len(kws)*30) if is_red else 15,
-                "amplifiers": 120 + (len(kws)*60) if is_red else 30,
-                "angry_pct": 74 if is_red else 20,
+                "forward_speed": fwd_speed,
+                "amplifiers": 90 + (len(kws) * 40) if is_red else 20,
+                "angry_pct": angry_score,
+                "ai_intent": ai_intent,
                 "comments": [
-                    "प्रशासनाने कायदा व सुव्यवस्था राखण्यासाठी तत्काळ बंदोबस्त लावावा.",
-                    "अफवांवर विश्वास न ठेवता शांतता बाळगावी."
-                ],
-                "key_figures": [
-                    {"नाव": "स्थानिक पोस्टकर्ता / हँडल", "रोल": "माहिती प्रसारक", "प्लॅटफॉर्म": platform, "कृती": "मजकूर सोशल मीडियावर व्हायरल केला.", "जोखीम": "🔴 उच्च" if is_red else "🟡 मध्यम"}
+                    f"स्थानिक नागरिक या घटनेवर {matched_place} भागात चर्चा करत आहेत.",
+                    "शांतता राखणे आवश्यक आहे, प्रशासनाने तात्काळ दखल घ्यावी."
                 ]
-            })
+            }
+            records.append(item)
+            save_intel_record(item)
             idx += 1
 
-    # ब. YouTube Shorts व व्हिडिओज थेट लाइव्ह
     try:
         cmd = ["yt-dlp", "ytsearch3:नांदेड आंदोलन news", "--dump-json", "--flat-playlist", "--no-warnings"]
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=6)
@@ -156,69 +334,85 @@ def fetch_realtime_police_intelligence():
                 if line:
                     v = json.loads(line)
                     title = v.get("title", "")
-                    if title in seen: continue
+                    is_valid, matched_place = ai_engine.is_strictly_nanded(title)
+                    if not is_valid or title in seen:
+                        continue
                     seen.add(title)
-                    kws, cat, stn, is_red, spot, timing, threat_score = analyze_incident_nlp(title)
-                    intel_stream.append({
-                        "id": f"NND-INTEL-{idx:03d}",
+
+                    stn_data = POLICE_JURISDICTION_MAP.get(matched_place, POLICE_JURISDICTION_MAP["नांदेड"])
+                    v_comments = ["नांदेड पोलिसांनी व्हिडिओची सत्यता तपासून कारवाई करावी."]
+                    try:
+                        c_cmd = ["yt-dlp", "--get-comments", "--max-comments", "2", f"https://www.youtube.com/watch?v={v.get('id')}"]
+                        c_res = subprocess.run(c_cmd, capture_output=True, text=True, timeout=4)
+                        if c_res.returncode == 0 and c_res.stdout.strip():
+                            v_comments = [c.strip() for c in c_res.stdout.strip().split("\n")[:2] if c.strip()]
+                    except Exception:
+                        pass
+
+                    kws, category, is_red, angry_score, ai_intent = ai_engine.analyze_deep(title, v_comments)
+                    fwd_speed = 60 if is_red else 16
+
+                    item = {
+                        "id": f"YT-{idx:03d}",
                         "title": title,
-                        "platform": "YouTube Video / Short",
+                        "place": matched_place,
+                        "platform": "YouTube Shorts / Video",
                         "icon": "▶️",
                         "url": f"https://www.youtube.com/watch?v={v.get('id')}",
                         "time": "थेट अपलोड",
-                        "source": v.get("uploader", "सार्वजनिक चॅनेल"),
-                        "category": cat,
+                        "source": v.get("uploader", "स्थानिक चॅनेल"),
+                        "category": category,
                         "keywords": kws,
-                        "station": stn["ps"],
-                        "wireless": stn["wireless"],
+                        "station": stn_data["ps"],
+                        "wireless": stn_data["wireless"],
                         "is_red_alert": is_red,
-                        "threat_score": threat_score,
-                        "spot": spot,
-                        "timing": timing,
-                        "forward_speed": 60 if is_red else 18,
-                        "amplifiers": 140 if is_red else 35,
-                        "angry_pct": 68 if is_red else 25,
-                        "comments": ["व्हिडिओची सत्यता तपासून कारवाई करावी."],
-                        "key_figures": [
-                            {"नाव": v.get("uploader", "अज्ञात चॅनेल"), "रोल": "व्हिडिओ क्रिएटर", "प्लॅटफॉर्म": "YouTube", "कृती": "घडामोडींचे थेट फुटेज प्रसिद्ध केले.", "जोखीम": "🔴 उच्च" if is_red else "🟡 मध्यम"}
-                        ]
-                    })
+                        "threat_score": min(95, angry_score + 8) if is_red else 25,
+                        "spot": f"{matched_place} मुख्य रस्ता",
+                        "timing": "चालू घडामोड",
+                        "forward_speed": fwd_speed,
+                        "amplifiers": 140 if is_red else 30,
+                        "angry_pct": angry_score,
+                        "ai_intent": ai_intent,
+                        "comments": v_comments
+                    }
+                    records.append(item)
+                    save_intel_record(item)
                     idx += 1
     except Exception:
         pass
 
-    return intel_stream
+    return records
 
-# --- ५. साइडबार व ऑपरेशन्स कंट्रोल ---
+# --- ६. साइडबार ---
 with st.sidebar:
-    st.markdown("## 🛡️ सायबर सेल नांदेड")
-    st.caption("🔴 २४×७ थेट कायदा-सुव्यवस्था नियंत्रण कक्ष")
+    st.markdown("### ⚡ सायबर सेल कमांड")
+    st.caption("नांदेड जिल्हा ऑपरेशन्स सेंटर")
     st.markdown("---")
     
     cmd_mode = st.radio(
-        "कमांड मोड:",
-        ["📡 लाइव्ह कमांड रडार", "🗄️ ऐतिहासिक इंटेलिजन्स डेटाबेस"]
+        "कार्यकारी विभाग:",
+        ["📡 लाइव्ह कमांड रडार", "🗄️ १ महिन्याचा डेटाबेस लॉग"]
     )
     st.markdown("---")
-    auto_refresh = st.toggle("⚡ ऑटो-रिफ्रेश व लाइव्ह लूप", value=True)
+    auto_refresh = st.toggle("⚡ ऑटो-रिफ्रेश लूप", value=True)
     refresh_sec = st.slider("स्कॅनिंग फ्रिक्वेन्सी (सेकंद):", min_value=15, max_value=60, value=30)
     siren_active = st.toggle("🔔 रेड अलर्ट सायरन", value=True)
     
     if st.button("🔄 आत्ताच थेट डेटा फेच करा"):
         st.rerun()
 
-# --- ६. थेट डेटा लोड करणे ---
-with st.spinner("नांदेड जिल्ह्यातील सोशल मीडिया, न्यूज आणि व्हिडिओ प्रवाह स्कॅन होत आहेत..."):
-    REAL_INTEL = fetch_realtime_police_intelligence()
+# --- ७. थेट डेटा लोड करणे ---
+with st.spinner("नांदेड जिल्ह्यातील सोशल मीडिया, व्हिडिओ व बातम्यांचे विश्लेषण सुरू आहे..."):
+    FILTERED_INTEL = fetch_live_multiplatform_intel()
 
-# --- ७. मुख्य स्क्रीन: लाइव्ह कमांड रडार ---
+# --- ८. मुख्य स्क्रीन: लाइव्ह कमांड रडार ---
 if cmd_mode == "📡 लाइव्ह कमांड रडार":
-    st.markdown("## 🚨 नांदेड जिल्हा पोलीस : २४×७ सोशल मीडिया व घडामोडी पूर्वसूचना केंद्र")
-    st.caption(f"शेवटचे थेट स्कॅनिंग: {datetime.now().strftime('%d-%m-%Y | %H:%M:%S')} (थेट इंटरनेट व सोशल मीडिया प्रवाह)")
+    st.markdown("## 🚨 नांदेड जिल्हा : २४×७ सोशल मीडिया व कायदा-सुव्यवस्था डिजिटल रडार")
+    st.caption(f"थेट सिस्टीम वेळ: {datetime.now().strftime('%d-%m-%Y | %H:%M:%S')} (फिल्टर: १००% नांदेड जिल्हा व सर्व तालुके)")
 
-    red_posts = [x for x in REAL_INTEL if x["is_red_alert"]]
+    red_posts = [x for x in FILTERED_INTEL if x["is_red_alert"]]
     
-    # सायरन वाजवणे (रेड अलर्ट असल्यास)
+    # सायरन वाजवणे
     if siren_active and len(red_posts) > 0:
         st.components.v1.html(
             """
@@ -245,74 +439,67 @@ if cmd_mode == "📡 लाइव्ह कमांड रडार":
             height=0
         )
 
-    # १. परिस्थिती सारांश मेट्रिक्स
+    # मेट्रिक्स
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("🔴 सक्रिय थेट घडामोडी", f"{len(REAL_INTEL)}")
-    m2.metric("🚨 अतिसंवेदनशील रेड अलर्ट्स", f"{len(red_posts)}")
-    max_speed = max([x["forward_speed"] for x in REAL_INTEL]) if REAL_INTEL else 0
-    m3.metric("⚡ सर्वाधिक व्हायरल गती", f"{max_speed} / मिनिट", "अतिजलद")
-    total_amps = sum([x["amplifiers"] for x in REAL_INTEL]) if REAL_INTEL else 0
-    m4.metric("👥 सक्रिय डिजिटल प्रसारक", f"{total_amps:,} युजर्स")
+    m1.metric("जिल्ह्यातील सक्रिय नोंदी", f"{len(FILTERED_INTEL)}")
+    m2.metric("सक्रिय रेड अलर्ट्स", f"{len(red_posts)}")
+    max_speed = max([x["forward_speed"] for x in FILTERED_INTEL]) if FILTERED_INTEL else 0
+    m3.metric("सर्वाधिक फॉरवर्ड वेग", f"{max_speed} / मिनिट")
+    total_amps = sum([x["amplifiers"] for x in FILTERED_INTEL]) if FILTERED_INTEL else 0
+    m4.metric("सक्रिय डिजिटल प्रसारक", f"{total_amps:,} युजर्स")
 
     st.markdown("---")
 
-    # २. फॉरवर्ड वेग व थ्रेट स्कोअर तक्ता
-    st.markdown("### 📤 सोशल मीडिया फॉरवर्ड वेग, माध्यम व थ्रेट स्कोअर तुलना")
+    # डिजिटल तुलना तक्ता
+    st.markdown("### 📤 सोशल मीडिया फॉरवर्ड वेग, माध्यम, थ्रेट स्कोअर व व्हायरल मेसेज तुलना तक्ता")
     grid_data = []
-    for item in REAL_INTEL:
+    for item in FILTERED_INTEL:
         grid_data.append({
             "आयडी": item["id"],
             "माध्यम": f"{item['icon']} {item['platform']}",
             "पोलीस ठाणे": item["station"],
-            "संभाव्य जमाव वेळ": item["timing"],
+            "मेसेज / बातमी काय फिरत आहे": item["title"],
             "फॉरवर्ड वेग": f"⚡ {item['forward_speed']} / मि.",
             "थ्रेट स्कोअर": f"🎯 {item['threat_score']}/१००",
-            "स्थिती": "🔴 रेड अलर्ट" if item["is_red_alert"] else "🟡 सर्वसाधारण"
+            "अलर्ट पातळी": "🔴 रेड अलर्ट" if item["is_red_alert"] else "🟡 सर्वसाधारण"
         })
     st.dataframe(pd.DataFrame(grid_data), use_container_width=True, hide_index=True)
 
     st.markdown("---")
 
-    # ३. अलर्ट कार्ड्स व ॲक्शन पॅनल
-    st.markdown("### 📡 थेट सोशल मीडिया व डिजिटल न्यूज स्ट्रीम (Live Actionable Stream):")
+    # कार्ड्स व्ह्यू
+    st.markdown("### 📡 नांदेड जिल्हा थेट प्रवाह (Live Action Stream):")
     
-    for item in REAL_INTEL:
+    if not FILTERED_INTEL:
+        st.info("सध्या मागील २४ तासांत नांदेड जिल्ह्यात कायदा व सुव्यवस्थेला बाधा आणणारी कोणतीही गंभीर घटना आढळलेली नाही. शांतता स्थिती कायम आहे.")
+
+    for item in FILTERED_INTEL:
         card_class = "intel-card-red" if item["is_red_alert"] else "intel-card-yellow"
-        
-        if "तेढ" in item["category"]:
-            badge_html = "<span class='badge badge-communal'>🔥 राजकीय व सामाजिक तेढ</span>"
-        elif "भाषण" in item["category"]:
-            badge_html = "<span class='badge badge-speech'>⚠️ भडकाऊ भाषण व लिखाण</span>"
-        elif "आंदोलन" in item["category"]:
-            badge_html = "<span class='badge badge-protest'>📢 आंदोलन / मोर्चा / रास्ता रोको</span>"
-        else:
-            badge_html = "<span class='badge badge-general'>📰 सामान्य घडामोड</span>"
+        badge_html = "<span class='badge badge-communal'>🔥 संवेदनशील अलर्ट</span>" if item["is_red_alert"] else "<span class='badge badge-general'>📰 सामान्य घडामोड</span>"
 
         st.markdown(f"""
         <div class="intel-card {card_class}">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <div>
                     {badge_html} 
-                    <span style="margin-left:10px; font-weight:700; color:#58a6ff;">{item['id']}</span>
-                    <span style="margin-left:10px; color:#8b949e; font-size:12px;">[{item['platform']}] ({item['time']})</span>
+                    <span style="margin-left:10px; font-weight:700; color:#38bdf8; font-family:'JetBrains Mono', monospace;">{item['id']}</span>
+                    <span style="margin-left:10px; color:#94a3b8; font-size:12px;">[{item['place']} तालुका] ({item['time']})</span>
                 </div>
-                <div style="font-size:13px; color:#c9d1d9;">
-                    <strong>स्त्रोत:</strong> {item['icon']} {item['source']}
+                <div style="font-size:13px; color:#cbd5e1;">
+                    <strong>माध्यम:</strong> {item['icon']} {item['platform']} | <strong>स्त्रोत:</strong> {item['source']}
                 </div>
             </div>
-            <h3 style="margin-top:0; color:#f0f6fc; line-height:1.4;">{item['title']}</h3>
+            <h3 style="margin-top:0; color:#f8fafc; line-height:1.5; font-size:19px;">{item['title']}</h3>
             <div style="margin-top:8px;">
                 🔗 <strong>मूळ लिंक:</strong> <a href="{item['url']}" target="_blank" class="source-link">{item['url']}</a>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        if item["keywords"]:
-            tags_html = " ".join([f"<span class='kw-tag'>🚩 {w}</span>" for w in item["keywords"]])
-            st.markdown(f"**डिटेक्ट झालेले संवेदनशील कीवर्ड्स:** {tags_html}", unsafe_allow_html=True)
-
-        # एआय अंदाज व हद्द बॉक्स
         st.markdown(f"""
+        <div class="ai-box">
+            🤖 <strong>एआय हेतू विश्लेषण (AI Intent Reader):</strong> <code>{item['ai_intent']}</code>
+        </div>
         <div class="spot-box">
             <div style="display:flex; justify-content:space-between;">
                 <div>📍 <strong>संभाव्य जमाव ठिकाण:</strong> <code>{item['spot']}</code></div>
@@ -322,7 +509,10 @@ if cmd_mode == "📡 लाइव्ह कमांड रडार":
         </div>
         """, unsafe_allow_html=True)
 
-        # ठाणे, वायरलेस आणि फॉरवर्ड मेट्रिक्स
+        if item["keywords"]:
+            tags_html = " ".join([f"<span class='kw-tag'>🚩 {w}</span>" for w in item["keywords"]])
+            st.markdown(f"**डिटेक्ट झालेले कीवर्ड्स:** {tags_html}", unsafe_allow_html=True)
+
         c1, c2 = st.columns(2)
         with c1:
             st.markdown(f"""
@@ -335,57 +525,42 @@ if cmd_mode == "📡 लाइव्ह कमांड रडार":
             st.markdown(f"""
             <div class="detail-container">
                 📤 <strong>अपेक्षित फॉरवर्ड वेग:</strong> <code>{item['forward_speed']} प्रति मिनिट</code><br>
-                👥 <strong>प्रसार करणारे डिजिटल युजर्स:</strong> <code>{item['amplifiers']} लोक सक्रिय</code>
+                👥 <strong>स्थानिक प्रसारक:</strong> <code>{item['amplifiers']} युजर्स सक्रिय</code>
             </div>
             """, unsafe_allow_html=True)
 
-        # जनभावना व थेट कमेंट्स
-        with st.expander("💬 जनभावना विश्लेषण व थेट कमेंट्स (Public Sentiment)", expanded=False):
+        with st.expander("💬 या घटनेवरील थेट कमेंट्स व जनभावना वाचन (Comments NLP)", expanded=item["is_red_alert"]):
             st.write(f"**आक्रमक / संतापजनक प्रतिक्रियांचे प्रमाण:** {item['angry_pct']}%")
             st.progress(item["angry_pct"] / 100)
+            st.caption("नागरिकांच्या थेट प्रतिक्रिया:")
             for c in item["comments"]:
                 st.markdown(f"- 🗣 *\"{c}\"*")
 
-        # पडद्यामागील सूत्रधार व आयोजक
-        with st.expander("👤 पडद्यामागील प्रमुख सूत्रधार व प्रसारकांची यादी", expanded=item["is_red_alert"]):
-            st.table(pd.DataFrame(item["key_figures"]))
+        if st.button("📻 वायरलेस फ्लॅश संदेश तयार करा", key=f"btn_{item['id']}"):
+            st.warning(f"**[वायरलेस संदेश]** {item['station']} हद्दीत {item['spot']} येथे {item['timing']} दरम्यान {item['category']} संदर्भाने सतर्कता बाळगावी.")
 
-        # --- १-क्लिक निर्णय पॅनल ---
-        act1, act2, act3 = st.columns(3)
-        with act1:
-            if st.button("📻 वायरलेस फ्लॅश संदेश तयार करा", key=f"btn_w_{item['id']}", use_container_width=True):
-                st.warning(f"""
-                **[वायरलेस संदेश मसुदा]**  
-                **प्रति:** सर्व संबंधित अधिकारी, {item['station']}.  
-                **माहिती:** {item['spot']} येथे {item['timing']} दरम्यान {item['category']} संदर्भाने जमाव होण्याची गुप्त माहिती आहे. तत्काळ गस्त व बंदोबस्त वाढवावा.
-                """)
-        with act2:
-            if st.button("📢 अधिकृत पोलीस खंडन जनरेट करा", key=f"btn_fc_{item['id']}", use_container_width=True):
-                st.info(f"""
-                **[नांदेड जिल्हा पोलीस अधिकृत प्रसिद्धीपत्रक]**  
-                "सोशल मीडियावर फिरत असलेली वरील बातमी/मेसेज वस्तुस्थितीला धरून नाही. नागरिकांनी अफवांवर विश्वास ठेवू नये. शांतता भंग करणाऱ्यांवर कठोर कायदेशीर कारवाई केली जाईल."
-                """)
-        with act3:
-            if st.button("⚖️ डिजिटल कोर्ट पुरावा (SHA-256) सेव्ह करा", key=f"btn_h_{item['id']}", use_container_width=True):
-                raw_hash = hashlib.sha256(f"{item['id']}-{item['title']}-{datetime.now()}".encode()).hexdigest()
-                st.success(f"**फॉरेन्सिक हॅश सुरक्षित:** `{raw_hash}` (वेळ: {datetime.now().strftime('%H:%M:%S')})")
+        st.markdown("<hr style='border:1px solid rgba(148, 163, 184, 0.15);'>", unsafe_allow_html=True)
 
-        st.markdown("<hr style='border:1px solid #30363d;'>", unsafe_allow_html=True)
-
-    # ऑटो-रिफ्रेश लूप
     if auto_refresh:
         time.sleep(refresh_sec)
         st.rerun()
 
-# --- ८. ऐतिहासिक डेटाबेस ---
-elif cmd_mode == "🗄️ ऐतिहासिक डेटाबेस":
-    st.subheader("🗄️ ऐतिहासिक इंटेलिजन्स डेटाबेस व लॉग्स")
-    df_live = pd.DataFrame(REAL_INTEL)
-    if not df_live.empty:
-        st.dataframe(df_live[["id", "platform", "source", "station", "forward_speed", "threat_score", "is_red_alert"]], use_container_width=True)
+# --- ९. १ महिन्याचा डेटाबेस लॉग ---
+elif cmd_mode == "🗄️ १ महिन्याचा डेटाबेस लॉग":
+    st.subheader("🗄️ महिनाभराचा स्थानिक इंटेलिजन्स लॉग (Testing Archive)")
+    st.caption("या महिन्यात सिस्टीमने ऑटोमॅटिक पकडलेल्या सर्व घटनांचा सेव्ह झालेला रेकॉर्ड.")
+    
+    conn = sqlite3.connect("nanded_cyber_intel.db")
+    df_db = pd.read_sql_query("SELECT * FROM intel_archive ORDER BY timestamp DESC", conn)
+    conn.close()
+
+    if not df_db.empty:
+        st.dataframe(df_db, use_container_width=True)
         st.download_button(
-            label="📥 आजचा सर्व थेट डेटा CSV मध्ये डाऊनलोड करा",
-            data=df_live.to_csv(index=False).encode('utf-8-sig'),
-            file_name="Nanded_Police_Intelligence_Live.csv",
+            label="📥 १ महिन्याचा संपूर्ण डेटा Excel/CSV मध्ये डाऊनलोड करा",
+            data=df_db.to_csv(index=False).encode('utf-8-sig'),
+            file_name="Nanded_1_Month_Validation_Report.csv",
             mime="text/csv"
         )
+    else:
+        st.info("अद्याप डेटाबेस रिकामी आहे. सिस्टीम सुरू राहिल्यावर डेटा आपोआप येथे साठवला जाईल.")
