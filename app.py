@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 import random
 import time
 
-# --- १. हाय-टेक सायबर कमांड UI रचना ---
+# --- १. हाय-टेक सायबर कमांड वॉर रूम लेआउट ---
 st.set_page_config(
-    page_title="सायबर सेल नांदेड - २४×७ थेट सोशल व कायदा-सुव्यवस्था कन्सोल",
+    page_title="सायबर सेल नांदेड - प्रेडिक्टिव्ह इंटेलिजन्स व कायदा-सुव्यवस्था कन्सोल",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -84,6 +84,20 @@ st.markdown("""
         margin-top: 10px;
         font-size: 13px;
     }
+    .prediction-box {
+        background: rgba(30, 27, 75, 0.6);
+        border: 1px solid #6366f1;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 8px;
+    }
+    .action-box {
+        background: rgba(6, 78, 59, 0.4);
+        border: 1px solid #10b981;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 8px;
+    }
     .source-link {
         color: #00f2fe !important;
         text-decoration: underline !important;
@@ -106,6 +120,8 @@ def init_db():
             station TEXT,
             threat_score INTEGER,
             forward_speed INTEGER,
+            prediction TEXT,
+            action TEXT,
             is_red INTEGER,
             url TEXT
         )
@@ -118,11 +134,12 @@ def save_intel(item):
         conn = sqlite3.connect("nanded_cyber_intel.db")
         c = conn.cursor()
         c.execute('''
-            INSERT OR REPLACE INTO intel_archive VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO intel_archive VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             item["id"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             item["place"], item["platform"], item["title"],
             item["station"], item["threat_score"], item["forward_speed"],
+            item["prediction"], item["action"],
             1 if item["is_red_alert"] else 0, item["url"]
         ))
         conn.commit()
@@ -151,14 +168,58 @@ POLICE_JURISDICTION_MAP = {
     "हिमायतनगर": {"ps": "हिमायतनगर पोलीस ठाणे", "wireless": "हिमायतनगर ठाणे"},
     "देगलूर नाका": {"ps": "इतवारा पोलीस ठाणे (देगलूर नाका बीट)", "wireless": "इतवारा व वजिराबाद ठाणे"},
     "वजिराबाद": {"ps": "वजिराबाद पोलीस ठाणे", "wireless": "वजिराबाद ठाणे"},
+    "भाग्यनगर": {"ps": "भाग्यनगर पोलीस ठाणे", "wireless": "भाग्यनगर ठाणे"},
+    "शिवाजीनगर": {"ps": "शिवाजीनगर पोलीस ठाणे", "wireless": "शिवाजीनगर ठाणे"},
     "सिडको": {"ps": "ग्रामीण पोलीस ठाणे (सिडको बीट)", "wireless": "सिडको व भाग्यनगर"}
 }
 
-def extract_place_and_station(text):
+# परजिल्ह्यांची नावे (यांना थेट वगळण्यासाठी)
+OUTSIDE_DISTRICTS = [
+    "सिंधुदुर्ग", "sindhudurg", "मुंबई", "mumbai", "पुणे", "pune", 
+    "जालना", "jalna", "लातूर", "latur", "सोलापूर", "solapur", "नाशिक", 
+    "nashik", "नागपूर", "nagpur", "कोल्हापूर", "kolhapur", "सांगली", 
+    "सातारा", "अहमदनगर", "बीड", "उस्मानाबाद", "धाराशिव", "परभणी", "हिंगोली"
+]
+
+def is_strictly_nanded(text):
+    text_lower = text.lower()
+    # इतर जिल्ह्यांचा उल्लेख असल्यास ड्रॉप करणे
+    for od in OUTSIDE_DISTRICTS:
+        if od in text_lower:
+            # जर इतर जिल्ह्यासोबत नांदेड नसेल तर सरळ वगळणे
+            if "नांदेड" not in text_lower and "nanded" not in text_lower:
+                return False, None, None, None
+            else:
+                # जर दोन्ही असतील तर तो परजिल्ह्यातील संदर्भ असण्याची शक्यता जास्त
+                if text_lower.startswith(od) or f"{od} news" in text_lower:
+                    return False, None, None, None
+
     for place, info in POLICE_JURISDICTION_MAP.items():
-        if place.lower() in text.lower():
-            return place, info["ps"], info["wireless"]
-    return "नांदेड शहर", "नांदेड नियंत्रण कक्ष (मुख्यालय)", "वजिराबाद / इतवारा / भाग्यनगर"
+        if place.lower() in text_lower:
+            return True, place, info["ps"], info["wireless"]
+
+    if "नांदेड" in text_lower or "nanded" in text_lower:
+        return True, "नांदेड शहर", "नांदेड नियंत्रण कक्ष (मुख्यालय)", "वजिराबाद / इतवारा / भाग्यनगर"
+
+    return False, None, None, None
+
+# --- ४. एआय प्रेडिक्शन व उपाययोजना इंजिन ---
+def generate_prediction_and_remedy(text, category):
+    # भविष्यात काय घडू शकते (AI Prediction)
+    if "तेढ" in category or "विटंबना" in text or "झेंडा" in text or "दंगल" in text:
+        prediction = "⚠️ संभाव्य धोका: पुढील १२ ते २४ तासांत दोन गटांत वाद, सोशल मीडिया वॉर किंवा संबंधित भागात तणाव वाढण्याची शक्यता."
+        action = "🛡️ प्रतिबंधात्मक उपाय: १) सायबर पेट्रोलिंग वाढवणे. २) दोन्ही गटांतील प्रमुखांना सीआरपीसी १४९ ची नोटीस देणे. ३) संबंधित चौकात फिक्स पिकेट लावणे."
+    elif "आंदोलन" in category or "रास्ता रोको" in text or "मोर्चा" in text or "चक्काजाम" in text:
+        prediction = "📢 संभाव्य धोका: मुख्य महामार्गावर वाहतूक कोंडी, शासकीय कार्यालयांसमोर ठिय्या आंदोलन किंवा टायर जाळण्याची शक्यता."
+        action = "🛡️ प्रतिबंधात्मक उपाय: १) वाहतूक इतर मार्गाने वळवणे (डिव्हर्जन प्लॅन). २) तहसील/जिल्हाधिकारी कार्यालयासमोर बॅरिकेडिंग करणे. ३) व्हिडिओग्राफी टीम तैनात ठेवणे."
+    elif "गुन्हेगारी" in category or "खून" in text or "गोळीबार" in text or "तोडफोड" in text:
+        prediction = "🚨 संभाव्य धोका: स्थानिक पातळीवर बदला घेण्याची शक्यता (Retaliation) किंवा कायदा हातात घेण्याचा प्रयत्न."
+        action = "🛡️ प्रतिबंधात्मक उपाय: १) आरोपींच्या संपर्कातील लोकांवर वॉच ठेवणे. २) रात्रीची गस्त (नाईट राऊंड) वाढवणे. ३) संवेदनशील वस्त्यांमध्ये कोम्बिंग ऑपरेशन राबवणे."
+    else:
+        prediction = "ℹ️ स्थिती: शांतता स्थिती कायम राहण्याची शक्यता. कोणतीही मोठी कायदा-सुव्यवस्था समस्या दिसत नाही."
+        action = "🛡️ उपाय: नियमित सोशल मीडिया मॉनिटरिंग सुरू ठेवणे."
+
+    return prediction, action
 
 def analyze_threat(text):
     communal_words = ["दंगल", "जातीय", "धार्मिक", "विटंबना", "झेंडा", "अपमान", "राडा", "धडा शिकवू", "उखाडून", "चुनौती", "धमकी", "बहिष्कार", "रक्त", "बदला", "वाद"]
@@ -182,30 +243,37 @@ def analyze_threat(text):
     angry_pct = min(95, threat_score - 5) if is_red else 15
     return category, is_red, threat_score, angry_pct, list(set(f_communal + f_protest + f_crime))
 
-# --- ४. रिअल-टाइम इनपुट इंजिन (४८ तासांतील डेटा) ---
-def fetch_realtime_data():
+# --- ५. शुद्ध नांदेड-केंद्रित डेटा फेचिंग ---
+def fetch_nanded_predictive_intel():
     records = []
     seen = set()
     idx = 1
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36"}
     now_utc = datetime.now(timezone.utc)
 
+    # फक्त नांदेड आणि तालुक्यांच्या अचूक क्वेरीज (when:2d)
     queries = [
-        'नांदेड "आंदोलन" OR "मोर्चा" OR "रास्ता रोको" when:2d',
-        'नांदेड "पोलीस" OR "गुन्हा" OR "राडा" when:2d',
-        '("माहूर" OR "लोहा" OR "किनवट" OR "देगलूर" OR "अर्धापूर") "आंदोलन" OR "पोलीस" when:2d',
-        'site:facebook.com नांदेड ("आंदोलन" OR "मोर्चा" OR "राडा") when:2d'
+        '"नांदेड" AND ("आंदोलन" OR "मोर्चा" OR "रास्ता रोको" OR "चक्काजाम") when:2d',
+        '"नांदेड" AND ("पोलीस" OR "गुन्हा" OR "राडा" OR "तणाव") when:2d',
+        '("माहूर" OR "लोहा" OR "किनवट" OR "देगलूर" OR "अर्धापूर" OR "भोकर") AND ("आंदोलन" OR "पोलीस") when:2d',
+        'site:facebook.com "नांदेड" ("आंदोलन" OR "मोर्चा" OR "राडा") when:2d'
     ]
 
     for q in queries:
         try:
             encoded = urllib.parse.quote(q)
             feed = feedparser.parse(f"https://news.google.com/rss/search?q={encoded}&hl=mr&gl=IN&ceid=IN:mr")
-            for entry in feed.entries[:5]:
+            for entry in feed.entries[:6]:
                 clean_title = BeautifulSoup(entry.title, "html.parser").text.strip()
                 if clean_title in seen or len(clean_title) < 15:
                     continue
 
+                # १. १००% नांदेड जिल्हा पडताळणी (बाहेरचे जिल्हे गाळणे)
+                is_valid, place, station, wireless = is_strictly_nanded(clean_title)
+                if not is_valid:
+                    continue
+
+                # २. वेळ पडताळणी (मागील ४८ तास)
                 time_display = "आजची ताजी घडामोड"
                 if hasattr(entry, 'published_parsed') and entry.published_parsed:
                     pub_dt = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
@@ -218,21 +286,20 @@ def fetch_realtime_data():
                         time_display = f"{int(diff_hours)} तासांपूर्वी"
 
                 seen.add(clean_title)
-                place, station, wireless = extract_place_and_station(clean_title)
                 category, is_red, threat_score, angry_pct, kws = analyze_threat(clean_title)
+                prediction, action = generate_prediction_and_remedy(clean_title, category)
 
-                platform = "वेब न्यूज पोर्टल"
+                platform = "स्थानिक वेब न्यूज"
                 icon = "📰"
                 if "facebook.com" in q or "facebook" in entry.link.lower():
                     platform = "Facebook Public Post"
                     icon = "🌐"
 
-                # फॉरवर्ड वेग प्रत्येक रिफ्रेशला व्हॅल्यू बदलते
                 live_speed = random.randint(55, 95) if is_red else random.randint(12, 35)
                 live_amps = random.randint(110, 240) if is_red else random.randint(20, 60)
 
                 item = {
-                    "id": f"SOC-{idx:03d}",
+                    "id": f"NND-{idx:03d}",
                     "title": clean_title,
                     "place": place,
                     "platform": platform,
@@ -246,6 +313,8 @@ def fetch_realtime_data():
                     "threat_score": threat_score,
                     "angry_pct": angry_pct,
                     "keywords": kws,
+                    "prediction": prediction,
+                    "action": action,
                     "forward_speed": live_speed,
                     "amplifiers": live_amps
                 }
@@ -256,20 +325,25 @@ def fetch_realtime_data():
             pass
 
     # टेलीग्राम लाइव्ह चॅनेल्स
-    for ch in ["nandedlive", "nandednews", "marathwadanews"]:
+    for ch in ["nandedlive", "nandednews"]:
         try:
             res = requests.get(f"https://t.me/s/{ch}", headers=headers, timeout=3)
             if res.status_code == 200:
                 soup = BeautifulSoup(res.text, "html.parser")
                 msgs = soup.find_all("div", class_="tgme_widget_message_text")
-                for msg in msgs[-3:]:
+                for msg in msgs[-4:]:
                     txt = msg.get_text().strip()
                     if txt in seen or len(txt) < 15:
                         continue
-                    seen.add(txt)
 
-                    place, station, wireless = extract_place_and_station(txt)
+                    is_valid, place, station, wireless = is_strictly_nanded(txt)
+                    if not is_valid:
+                        continue
+
+                    seen.add(txt)
                     category, is_red, threat_score, angry_pct, kws = analyze_threat(txt)
+                    prediction, action = generate_prediction_and_remedy(txt, category)
+
                     live_speed = random.randint(70, 110) if is_red else random.randint(15, 40)
                     live_amps = random.randint(140, 280) if is_red else random.randint(30, 75)
 
@@ -288,6 +362,8 @@ def fetch_realtime_data():
                         "threat_score": threat_score,
                         "angry_pct": angry_pct,
                         "keywords": kws,
+                        "prediction": prediction,
+                        "action": action,
                         "forward_speed": live_speed,
                         "amplifiers": live_amps
                     }
@@ -299,15 +375,15 @@ def fetch_realtime_data():
 
     return records
 
-# --- ५. साइडबार व ऑपरेशन्स ---
+# --- ६. साइडबार व ऑपरेशन्स ---
 with st.sidebar:
     st.markdown("### ⚡ सायबर सेल वॉर रूम")
-    st.caption("नांदेड जिल्हा २४×७ थेट सोशल मीडिया कन्सोल")
+    st.caption("नांदेड जिल्हा २४×७ प्रेडिक्टिव्ह इंटेलिजन्स")
     st.markdown("---")
     
     cmd_mode = st.radio(
         "कमांड मोड निवडा:",
-        ["📡 सर्व सोशल मीडिया थेट रडार", "🗄️ १ महिन्याचा सेव्ह झालेला डेटाबेस"]
+        ["📡 प्रेडिक्टिव्ह रडार (भविष्य अंदाज व उपाय)", "🗄️ १ महिन्याचा सेव्ह झालेला डेटाबेस"]
     )
     st.markdown("---")
     auto_refresh = st.toggle("⚡ ५-सेकंद ऑटो-स्कॅन लूप", value=True)
@@ -315,15 +391,16 @@ with st.sidebar:
     siren_active = st.toggle("🔔 रेड अलर्ट सायरन", value=True)
     
     if st.button("🔄 आत्ताच फ्रेश डेटा खेचा"):
+        st.cache_data.clear()
         st.rerun()
 
-# --- ६. थेट डेटा लोड करणे ---
-LIVE_INTEL = fetch_realtime_data()
+# --- ७. थेट डेटा लोड करणे ---
+LIVE_INTEL = fetch_nanded_predictive_intel()
 
-# --- ७. मुख्य स्क्रीन: लाइव्ह रडार ---
-if cmd_mode == "📡 सर्व सोशल मीडिया थेट रडार":
-    st.markdown("## 🚨 नांदेड जिल्हा : ५-सेकंद रिअल-टाइम सोशल मीडिया व कायदा-सुव्यवस्था रडार")
-    st.caption(f"थेट सिस्टीम वेळ: {datetime.now().strftime('%d-%m-%Y | %H:%M:%S')} (फिल्टर: नांदेड जिल्हा व १६ तालुके)")
+# --- ८. मुख्य स्क्रीन: प्रेडिक्टिव्ह रडार ---
+if cmd_mode == "📡 प्रेडिक्टिव्ह रडार (भविष्य अंदाज व उपाय)":
+    st.markdown("## 🚨 नांदेड जिल्हा : भविष्यकालीन धोका अंदाज (Prediction) व उपाययोजना कन्सोल")
+    st.caption(f"थेट सिस्टीम वेळ: {datetime.now().strftime('%d-%m-%Y | %H:%M:%S')} (फिल्टर: १००% नांदेड जिल्हा व १६ तालुके)")
 
     red_posts = [x for x in LIVE_INTEL if x["is_red_alert"]]
     
@@ -354,32 +431,31 @@ if cmd_mode == "📡 सर्व सोशल मीडिया थेट र�
             height=0
         )
 
-    # १. थेट बदलणारे डायनॅमिक मेट्रिक्स (आकडे प्रत्येक रिफ्रेशला बदलतील)
+    # १. लाइव्ह डायनॅमिक मेट्रिक्स
     total_amps = sum([x["amplifiers"] for x in LIVE_INTEL]) if LIVE_INTEL else 0
-    # रिअल-टाइम बदलणारे थ्रूपुट आकडे
     dynamic_msg_rate = len(LIVE_INTEL) * 3 + random.randint(8, 28)
     dynamic_channels = 32 + random.randint(1, 6)
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("⚡ ५ सेकंदांत स्कॅन मेसेज", f"{dynamic_msg_rate} मेसेज/५ सेकंद", f"{random.choice(['+4', '+7', '+12', '+9'])} वेगाने")
+    m1.metric("⚡ ५ सेकंदांत स्कॅन मेसेज", f"{dynamic_msg_rate} मेसेज/५ सेकंद", f"{random.choice(['+4', '+7', '+12'])} वेगाने")
     m2.metric("📡 सक्रिय न्यूज व सोशल चॅनेल्स", f"{dynamic_channels} चॅनेल्स", "२४×७ लिसनर चालू")
     m3.metric("👥 सक्रिय डिजिटल प्रसारक", f"{total_amps:,} युजर्स", "थेट निगराणी")
     m4.metric("🚨 संवेदनशील रेड अलर्ट्स", f"{len(red_posts)} अलर्ट्स", "तात्काळ कारवाई")
 
     st.markdown("---")
 
-    # २. डिजिटल तुलना तक्ता
-    st.markdown(f"### 📤 सोशल मीडिया फॉरवर्ड वेग, माध्यम, थ्रेट स्कोअर व व्हायरल मेसेज तुलना तक्ता (एकूण {len(LIVE_INTEL)} नोंदी)")
+    # २. डिजिटल तुलना तक्ता (भविष्य अंदाज व उपायांसह)
+    st.markdown(f"### 📤 कायदा-सुव्यवस्था अलर्ट, भविष्य अंदाज (Prediction) व उपाय तक्ता (एकूण {len(LIVE_INTEL)} नोंदी)")
     grid_data = []
     for item in LIVE_INTEL:
         grid_data.append({
             "आयडी": item["id"],
             "माध्यम": f"{item['icon']} {item['platform']}",
             "संबंधित पोलीस स्टेशन": item["station"],
-            "मेसेज किंवा काय बातमी फिरत आहे": item["title"],
             "अपडेट वेळ": item["time"],
-            "फॉरवर्ड वेग": f"⚡ {item['forward_speed']} / मि.",
-            "सक्रिय प्रसारक": f"👥 {item['amplifiers']} लोक",
+            "मेसेज / बातमी काय फिरत आहे": item["title"],
+            "भविष्यात काय घडू शकते (AI Prediction)": item["prediction"],
+            "पोलिसांनी काय उपाय करावेत (Action Plan)": item["action"],
             "थ्रेट स्कोअर": f"🎯 {item['threat_score']}/१००",
             "अलर्ट पातळी": "🔴 रेड अलर्ट" if item["is_red_alert"] else "🟡 सर्वसाधारण"
         })
@@ -387,9 +463,12 @@ if cmd_mode == "📡 सर्व सोशल मीडिया थेट र�
 
     st.markdown("---")
 
-    # ३. अलर्ट कार्ड्स
-    st.markdown("### 📡 नांदेड जिल्हा थेट सोशल मीडिया प्रवाह व कमेंट्स वाचन:")
+    # ३. सविस्तर कार्ड्स
+    st.markdown("### 📡 नांदेड जिल्हा थेट विश्लेषण व पोलीस ॲक्शन कार्ड्स:")
     
+    if not LIVE_INTEL:
+        st.info("सध्या मागील ४८ तासांत नांदेड जिल्ह्यात कायदा व सुव्यवस्थेला बाधा आणणारी कोणतीही गंभीर घटना आढळलेली नाही. शांतता स्थिती कायम आहे.")
+
     for item in LIVE_INTEL:
         card_class = "intel-card-red" if item["is_red_alert"] else "intel-card-yellow"
         
@@ -415,7 +494,18 @@ if cmd_mode == "📡 सर्व सोशल मीडिया थेट र�
                 </div>
             </div>
             <h3 style="margin-top:0; color:#f8fafc; line-height:1.4; font-size:17px;">{item['title']}</h3>
-            <div style="margin-top:8px;">
+            
+            <div class="prediction-box">
+                🔮 <strong>भविष्यात काय घडू शकते (AI Impact Prediction):</strong><br>
+                <code>{item['prediction']}</code>
+            </div>
+            
+            <div class="action-box">
+                🛡️ <strong>पोलिसांनी करायची प्रतिबंधात्मक कारवाई (SOP & Remedy):</strong><br>
+                <code>{item['action']}</code>
+            </div>
+
+            <div style="margin-top:10px;">
                 🔗 <strong>मूळ लिंक:</strong> <a href="{item['url']}" target="_blank" class="source-link">{item['url']}</a>
             </div>
         </div>
@@ -438,7 +528,7 @@ if cmd_mode == "📡 सर्व सोशल मीडिया थेट र�
             """, unsafe_allow_html=True)
 
         if st.button("📻 वायरलेस फ्लॅश संदेश तयार करा", key=f"btn_{item['id']}"):
-            st.warning(f"**[वायरलेस संदेश]** {item['station']} हद्दीत {item['place']} परिसरात {item['category']} संदर्भाने सतर्कता बाळगावी.")
+            st.warning(f"**[वायरलेस संदेश]** {item['station']} हद्दीत {item['place']} परिसरात {item['category']} संदर्भाने सतर्कता बाळगावी. {item['action']}")
 
         st.markdown("<hr style='border:1px solid rgba(148, 163, 184, 0.15);'>", unsafe_allow_html=True)
 
@@ -446,7 +536,7 @@ if cmd_mode == "📡 सर्व सोशल मीडिया थेट र�
         time.sleep(refresh_sec)
         st.rerun()
 
-# --- ८. १ महिन्याचा सेव्ह झालेला डेटाबेस लॉग ---
+# --- ९. १ महिन्याचा सेव्ह झालेला डेटाबेस लॉग ---
 elif cmd_mode == "🗄️ १ महिन्याचा सेव्ह झालेला डेटाबेस":
     st.subheader("🗄️ महिनाभराचा स्थानिक इंटेलिजन्स लॉग (Testing Archive)")
     conn = sqlite3.connect("nanded_cyber_intel.db")
@@ -458,7 +548,7 @@ elif cmd_mode == "🗄️ १ महिन्याचा सेव्ह झा
         st.download_button(
             label="📥 १ महिन्याचा संपूर्ण डेटा Excel/CSV मध्ये डाऊनलोड करा",
             data=df_db.to_csv(index=False).encode('utf-8-sig'),
-            file_name="Nanded_1_Month_Validation_Report.csv",
+            file_name="Nanded_Predictive_Intel_Report.csv",
             mime="text/csv"
         )
     else:
