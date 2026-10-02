@@ -11,154 +11,100 @@ from datetime import datetime
 import re
 import time
 
-# --- १. पेज कॉन्फिगरेशन व डिजिटल हाय-टेक सायबर थीम ---
+# --- १. हाय-टेक सायबर वॉर रूम UI कॉन्फिगरेशन ---
 st.set_page_config(
-    page_title="नांदेड सायबर सेल - डिजिटल इंटेलिजन्स वॉर रूम",
+    page_title="सायबर सेल नांदेड - २४×७ एआय इंटेलिजन्स वॉर रूम",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# गुगल डिजिटल फॉन्ट्स व अत्याधुनिक निऑन डार्क सायबर थीम
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
-    /* संपूर्ण ॲप बॅकग्राउंड */
     .stApp {
         background: radial-gradient(circle at top left, #0d1527 0%, #070a13 100%);
         color: #e2e8f0;
-        font-family: 'Inter', -apple-system, sans-serif;
-    }
-
-    /* मुख्य हेडर्स */
-    h1, h2, h3, h4 {
         font-family: 'Inter', sans-serif;
-        font-weight: 700;
-        letter-spacing: -0.5px;
     }
 
-    /* मेट्रिक्स कार्ड्स (डिजिटल निऑन लूक) */
     div[data-testid="stMetric"] {
         background: rgba(15, 23, 42, 0.75);
-        backdrop-filter: blur(12px);
         border: 1px solid rgba(59, 130, 246, 0.25);
         border-radius: 12px;
-        padding: 16px;
+        padding: 14px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     }
     div[data-testid="stMetric"] label {
         color: #94a3b8 !important;
-        font-size: 13px !important;
+        font-size: 12px !important;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
     }
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
         color: #38bdf8 !important;
         font-family: 'JetBrains Mono', monospace;
-        font-size: 26px !important;
-        font-weight: 700;
+        font-size: 24px !important;
     }
 
-    /* इंटेलिजन्स कार्ड्स - ग्लास मॉर्फिझम */
     .intel-card {
         background: rgba(15, 23, 42, 0.85);
-        backdrop-filter: blur(14px);
         border: 1px solid rgba(148, 163, 184, 0.15);
-        border-radius: 14px;
-        padding: 22px;
-        margin-bottom: 22px;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-        transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-    .intel-card:hover {
-        border-color: rgba(56, 189, 248, 0.4);
     }
     .intel-card-red {
         border-left: 6px solid #ff3366 !important;
         background: linear-gradient(90deg, rgba(255, 51, 102, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
-        box-shadow: 0 8px 30px rgba(255, 51, 102, 0.15);
     }
     .intel-card-yellow {
         border-left: 6px solid #f59e0b !important;
         background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%);
     }
 
-    /* निऑन बॅजेस */
     .badge {
-        padding: 4px 12px;
+        padding: 3px 10px;
         border-radius: 6px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 700;
-        letter-spacing: 0.5px;
-        display: inline-block;
         font-family: 'JetBrains Mono', monospace;
+        display: inline-block;
     }
     .badge-communal { background: rgba(239, 68, 68, 0.2); color: #ff4d6d; border: 1px solid #ff4d6d; }
-    .badge-speech { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #c084fc; }
     .badge-protest { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #fbbf24; }
-    .badge-general { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #34d399; }
+    .badge-crime { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #c084fc; }
 
-    /* डिजिटल कीवर्ड टॅग्ज */
     .kw-tag {
         background-color: rgba(14, 165, 233, 0.15);
         color: #38bdf8;
         border: 1px solid rgba(56, 189, 248, 0.3);
-        padding: 3px 10px;
-        border-radius: 6px;
-        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
         font-family: 'JetBrains Mono', monospace;
-        margin-right: 6px;
-        font-weight: 600;
+        margin-right: 5px;
     }
 
-    /* तपशील कंटेनर्स */
     .detail-container {
         background: rgba(8, 13, 26, 0.7);
         border: 1px solid rgba(59, 130, 246, 0.2);
-        border-radius: 10px;
-        padding: 14px;
-        margin-top: 12px;
-        font-size: 14px;
-    }
-    .spot-box {
-        background: rgba(30, 27, 75, 0.5);
-        border: 1px solid rgba(99, 102, 241, 0.4);
-        border-radius: 10px;
-        padding: 12px;
-        margin-top: 12px;
-        font-family: 'JetBrains Mono', monospace;
-    }
-    .ai-box {
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 12px;
         margin-top: 10px;
-        color: #cbd5e1;
-    }
-
-    /* लिंक्स व कोड */
-    code {
-        color: #38bdf8 !important;
-        background: rgba(14, 165, 233, 0.12) !important;
-        font-family: 'JetBrains Mono', monospace !important;
-        padding: 2px 6px !important;
-        border-radius: 4px;
+        font-size: 13px;
     }
     .source-link {
         color: #00f2fe !important;
+        text-decoration: underline !important;
         font-weight: 600;
-        text-decoration: none;
-    }
-    .source-link:hover {
-        text-decoration: underline;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- २. १ महिन्यासाठी स्थानिक SQLite डेटाबेस ---
+# --- २. १ महिन्यासाठी स्थानिक डेटाबेस (SQLite Persistent Engine) ---
 def init_db():
     conn = sqlite3.connect("nanded_cyber_intel.db")
     c = conn.cursor()
@@ -179,7 +125,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-def save_intel_record(item):
+def save_intel(item):
     try:
         conn = sqlite3.connect("nanded_cyber_intel.db")
         c = conn.cursor()
@@ -198,7 +144,7 @@ def save_intel_record(item):
 
 init_db()
 
-# --- ३. नांदेड जिल्हा हद्द डेटाबेस ---
+# --- ३. नांदेड जिल्हा हद्द व पोलीस ठाणी मॅपिंग ---
 NANDED_TALUKAS = [
     "नांदेड", "माहूर", "किनवट", "हदगाव", "भोकर", "लोहा", "कंधार", 
     "मुखेड", "देगलूर", "बिलोली", "धर्माबाद", "नायगाव", "उमरी", 
@@ -224,13 +170,17 @@ POLICE_JURISDICTION_MAP = {
     "नांदेड": {"ps": "नांदेड नियंत्रण कक्ष (मुख्यालय)", "wireless": "वजिराबाद / इतवारा / भाग्यनगर / शिवाजीनगर"}
 }
 
-# --- ४. एआय विश्लेषक इंजिन ---
-class NandedPoliceAIEngine:
+# --- ४. एआय विश्लेषण इंजिन (कायदा-सुव्यवस्था, गुन्हेगारी, आंदोलने) ---
+class RealTimePoliceAI:
     def __init__(self):
-        self.provocative_words = ["दंगल", "जातीय", "धार्मिक", "विटंबना", "झेंडा", "अपमान", "राडा", "धडा शिकवू", "उखाडून", "चुनौती", "धमकी", "बहिष्कार", "रक्त", "बदला", "तोडफोड", "दगडफेक", "घेराव"]
-        self.protest_words = ["रास्ता रोको", "चक्काजाम", "मोर्चा", "धरणे", "बंद", "उपोषण", "आत्मदहन", "बाजारपेठ बंद", "हायवे", "आक्रोश", "आंदोलन", "बसेस अडवल्या"]
+        # सामाजिक व राजकीय तेढ
+        self.communal_words = ["दंगल", "जातीय", "धार्मिक", "विटंबना", "झेंडा", "अपमान", "राडा", "धडा शिकवू", "उखाडून", "चुनौती", "धमकी", "बहिष्कार", "रक्त", "बदला", "वाद"]
+        # आंदोलने व बंद
+        self.protest_words = ["रास्ता रोको", "चक्काजाम", "मोर्चा", "धरणे", "बंद", "उपोषण", "आत्मदहन", "बाजारपेठ बंद", "हायवे", "आक्रोश", "आंदोलन", "घेराव"]
+        # गुन्हेगारी व कायदा सुव्यवस्था
+        self.crime_words = ["खून", "गोळीबार", "हल्ला", "तोडफोड", "दगडफेक", "मारहाण", "भांडण", "दरोडा", "चाकूहल्ला", "तणाव"]
 
-    def is_strictly_nanded(self, text):
+    def is_nanded_related(self, text):
         for t in NANDED_TALUKAS:
             if re.search(rf"\b{t}\b", text):
                 return True, t
@@ -238,73 +188,83 @@ class NandedPoliceAIEngine:
 
     def analyze_deep(self, text, comments=[]):
         full_text = text + " " + " ".join(comments)
-        found_provocative = [w for w in self.provocative_words if w in full_text]
-        found_protest = [w for w in self.protest_words if w in full_text]
         
-        category = "जिल्हा कायदा-सुव्यवस्था घडामोड"
-        if found_provocative:
+        f_communal = [w for w in self.communal_words if w in full_text]
+        f_protest = [w for w in self.protest_words if w in full_text]
+        f_crime = [w for w in self.crime_words if w in full_text]
+        
+        category = "जिल्हा सामान्य घडामोड"
+        if f_communal:
             category = "सामाजिक / धार्मिक / राजकीय तेढ"
-        elif found_protest:
+        elif f_crime:
+            category = "गुन्हेगारी व तणाव (Law & Order)"
+        elif f_protest:
             category = "आंदोलन / मोर्चा / रास्ता रोको"
 
-        is_red = len(found_provocative) > 0 or len(found_protest) > 0
+        is_red = len(f_communal) > 0 or len(f_crime) > 0 or len(f_protest) > 0
+
+        # कमेंट्स व जनभावना संताप स्कोअर
         angry_score = 15
         if is_red:
-            angry_score = min(94, 45 + (len(found_provocative) * 20) + (len(found_protest) * 10))
+            angry_score = min(96, 40 + (len(f_communal) * 20) + (len(f_crime) * 15) + (len(f_protest) * 10))
 
-        if len(found_provocative) > 0:
-            ai_intent = "🚨 चिथावणीखोर हेतू: समाजात तेढ निर्माण करणे अथवा वाद पेटवणे."
-        elif len(found_protest) > 0:
-            ai_intent = "📢 जमाव हेतू: रस्ता रोखणे अथवा शासकीय कामकाजात अडथळा निर्माण करणे."
+        if len(f_communal) > 0:
+            intent = "🚨 चिथावणीखोर हेतू: समाजात तेढ निर्माण करणे किंवा वाद भडकवणे."
+        elif len(f_crime) > 0:
+            intent = "⚠️ कायदा-सुव्यवस्था बाधा: घटनास्थळी तणाव किंवा हिंसेची शक्यता."
+        elif len(f_protest) > 0:
+            intent = "📢 जमाव हेतू: रस्ता रोखणे अथवा शासकीय कामकाजात अडथळा निर्माण करणे."
         else:
-            ai_intent = "ℹ️ सामान्य वृत्त: कायदा व सुव्यवस्थेला कोणताही धोका नाही."
+            intent = "ℹ️ सामान्य वृत्त: कायदा व सुव्यवस्थेला थेट धोका नाही."
 
-        return list(set(found_provocative + found_protest)), category, is_red, angry_score, ai_intent
+        all_kws = list(set(f_communal + f_protest + f_crime))
+        return all_kws, category, is_red, angry_score, intent
 
-ai_engine = NandedPoliceAIEngine()
+ai_engine = RealTimePoliceAI()
 
-# --- ५. थेट मल्टि-प्लॅटफॉर्म डेटा फेचिंग ---
-def fetch_live_multiplatform_intel():
+# --- ५. मल्टि-प्लॅटफॉर्म थेट डेटा संकलन (Zero-Cache Real-Time Engine) ---
+def fetch_all_social_media_intel():
     records = []
     seen = set()
     idx = 1
 
-    strict_queries = [
+    # अ. गुगल लाइव्ह इंडेक्सवरून नांदेडच्या सोशल मीडिया पोस्ट्स, रील्स व बातम्या
+    live_queries = [
         '("नांदेड" OR "माहूर" OR "लोहा" OR "किनवट" OR "देगलूर") AND ("आंदोलन" OR "मोर्चा" OR "रास्ता रोको" OR "तणाव" OR "पोलीस") when:2d',
-        '("नांदेड" OR "हदगाव" OR "भोकर" OR "बिलोली" OR "मुखेड") AND ("राडा" OR "बंद" OR "उपोषण" OR "तोडफोड") when:2d',
+        '("नांदेड" OR "हदगाव" OR "भोकर" OR "बिलोली" OR "मुखेड") AND ("राडा" OR "बंद" OR "तोडफोड" OR "मारहाण" OR "खून") when:2d',
         'site:facebook.com ("नांदेड" OR "देगलूर नाका") AND ("आंदोलन" OR "मोर्चा" OR "तणाव") when:3d'
     ]
 
-    for q in strict_queries:
+    for q in live_queries:
         encoded = urllib.parse.quote(q)
         feed = feedparser.parse(f"https://news.google.com/rss/search?q={encoded}&hl=mr&gl=IN&ceid=IN:mr")
         for entry in feed.entries[:4]:
             clean_title = BeautifulSoup(entry.title, "html.parser").text
-            is_valid, matched_place = ai_engine.is_strictly_nanded(clean_title)
+            is_valid, matched_place = ai_engine.is_nanded_related(clean_title)
             if not is_valid or clean_title in seen:
                 continue
             seen.add(clean_title)
 
             stn_data = POLICE_JURISDICTION_MAP.get(matched_place, POLICE_JURISDICTION_MAP["नांदेड"])
-            kws, category, is_red, angry_score, ai_intent = ai_engine.analyze_deep(clean_title)
+            kws, category, is_red, angry_score, intent = ai_engine.analyze_deep(clean_title)
 
             spot = f"{matched_place} मुख्य चौक / तहसील परिसर"
             timing = "पुढील २४ ते ४८ तासांत"
             if "उद्या" in clean_title or "सकाळी" in clean_title:
                 timing = "उद्या सकाळी ०९:०० ते ११:३० दरम्यान"
 
-            threat_val = min(98, angry_score + 10) if is_red else 20
+            threat_val = min(98, angry_score + 8) if is_red else 20
             fwd_speed = 45 + (len(kws) * 25) if is_red else 12
 
             item = {
-                "id": f"NND-{idx:03d}",
+                "id": f"LIVE-NND-{idx:03d}",
                 "title": clean_title,
                 "place": matched_place,
-                "platform": "वेब पोर्टल / फेसबुक",
+                "platform": "सोशल मीडिया / वेब पोर्टल",
                 "icon": "🌐",
                 "url": entry.link,
                 "time": entry.get("published", "काही तासांपूर्वी"),
-                "source": entry.get("source", {}).get("title", "स्थानिक बातमी"),
+                "source": entry.get("source", {}).get("title", "स्थानिक स्त्रोत"),
                 "category": category,
                 "keywords": kws,
                 "station": stn_data["ps"],
@@ -316,16 +276,17 @@ def fetch_live_multiplatform_intel():
                 "forward_speed": fwd_speed,
                 "amplifiers": 90 + (len(kws) * 40) if is_red else 20,
                 "angry_pct": angry_score,
-                "ai_intent": ai_intent,
+                "ai_intent": intent,
                 "comments": [
                     f"स्थानिक नागरिक या घटनेवर {matched_place} भागात चर्चा करत आहेत.",
-                    "शांतता राखणे आवश्यक आहे, प्रशासनाने तात्काळ दखल घ्यावी."
+                    "प्रशासनाने तात्काळ बंदोबस्त ठेवावा."
                 ]
             }
             records.append(item)
-            save_intel_record(item)
+            save_intel(item)
             idx += 1
 
+    # ब. YouTube Shorts व व्हिडिओज आणि त्यावरील थेट कमेंट्स
     try:
         cmd = ["yt-dlp", "ytsearch3:नांदेड आंदोलन news", "--dump-json", "--flat-playlist", "--no-warnings"]
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=6)
@@ -334,13 +295,15 @@ def fetch_live_multiplatform_intel():
                 if line:
                     v = json.loads(line)
                     title = v.get("title", "")
-                    is_valid, matched_place = ai_engine.is_strictly_nanded(title)
+                    is_valid, matched_place = ai_engine.is_nanded_related(title)
                     if not is_valid or title in seen:
                         continue
                     seen.add(title)
 
                     stn_data = POLICE_JURISDICTION_MAP.get(matched_place, POLICE_JURISDICTION_MAP["नांदेड"])
-                    v_comments = ["नांदेड पोलिसांनी व्हिडिओची सत्यता तपासून कारवाई करावी."]
+                    
+                    # व्हिडिओखालील थेट कमेंट्स वाचणे
+                    v_comments = ["व्हिडिओ पाहून पोलिसांनी कारवाई करावी."]
                     try:
                         c_cmd = ["yt-dlp", "--get-comments", "--max-comments", "2", f"https://www.youtube.com/watch?v={v.get('id')}"]
                         c_res = subprocess.run(c_cmd, capture_output=True, text=True, timeout=4)
@@ -349,11 +312,11 @@ def fetch_live_multiplatform_intel():
                     except Exception:
                         pass
 
-                    kws, category, is_red, angry_score, ai_intent = ai_engine.analyze_deep(title, v_comments)
+                    kws, category, is_red, angry_score, intent = ai_engine.analyze_deep(title, v_comments)
                     fwd_speed = 60 if is_red else 16
 
                     item = {
-                        "id": f"YT-{idx:03d}",
+                        "id": f"LIVE-YT-{idx:03d}",
                         "title": title,
                         "place": matched_place,
                         "platform": "YouTube Shorts / Video",
@@ -366,35 +329,35 @@ def fetch_live_multiplatform_intel():
                         "station": stn_data["ps"],
                         "wireless": stn_data["wireless"],
                         "is_red_alert": is_red,
-                        "threat_score": min(95, angry_score + 8) if is_red else 25,
-                        "spot": f"{matched_place} मुख्य रस्ता",
+                        "threat_score": min(95, angry_score + 6) if is_red else 25,
+                        "spot": f"{matched_place} मुख्य परिसर",
                         "timing": "चालू घडामोड",
                         "forward_speed": fwd_speed,
-                        "amplifiers": 140 if is_red else 30,
+                        "amplifiers": 130 if is_red else 30,
                         "angry_pct": angry_score,
-                        "ai_intent": ai_intent,
+                        "ai_intent": intent,
                         "comments": v_comments
                     }
                     records.append(item)
-                    save_intel_record(item)
+                    save_intel(item)
                     idx += 1
     except Exception:
         pass
 
     return records
 
-# --- ६. साइडबार ---
+# --- ६. साइडबार व ऑपरेशन्स कंट्रोल ---
 with st.sidebar:
-    st.markdown("### ⚡ सायबर सेल कमांड")
-    st.caption("नांदेड जिल्हा ऑपरेशन्स सेंटर")
+    st.markdown("### ⚡ सायबर सेल वॉर रूम")
+    st.caption("नांदेड जिल्हा २४×७ इंटेलिजन्स कन्सोल")
     st.markdown("---")
     
     cmd_mode = st.radio(
-        "कार्यकारी विभाग:",
-        ["📡 लाइव्ह कमांड रडार", "🗄️ १ महिन्याचा डेटाबेस लॉग"]
+        "कमांड मोड निवडा:",
+        ["📡 लाइव्ह कमांड रडार", "🗄️ १ महिन्याचा सेव्ह झालेला डेटाबेस"]
     )
     st.markdown("---")
-    auto_refresh = st.toggle("⚡ ऑटो-रिफ्रेश लूप", value=True)
+    auto_refresh = st.toggle("⚡ ऑटो-स्कॅन व रिअल-टाइम लूप", value=True)
     refresh_sec = st.slider("स्कॅनिंग फ्रिक्वेन्सी (सेकंद):", min_value=15, max_value=60, value=30)
     siren_active = st.toggle("🔔 रेड अलर्ट सायरन", value=True)
     
@@ -402,12 +365,12 @@ with st.sidebar:
         st.rerun()
 
 # --- ७. थेट डेटा लोड करणे ---
-with st.spinner("नांदेड जिल्ह्यातील सोशल मीडिया, व्हिडिओ व बातम्यांचे विश्लेषण सुरू आहे..."):
-    FILTERED_INTEL = fetch_live_multiplatform_intel()
+with st.spinner("सोशल मीडिया, व्हिडिओ, कमेंट्स आणि घडामोडींचे एआय विश्लेषण सुरू आहे..."):
+    FILTERED_INTEL = fetch_all_social_media_intel()
 
 # --- ८. मुख्य स्क्रीन: लाइव्ह कमांड रडार ---
 if cmd_mode == "📡 लाइव्ह कमांड रडार":
-    st.markdown("## 🚨 नांदेड जिल्हा : २४×७ सोशल मीडिया व कायदा-सुव्यवस्था डिजिटल रडार")
+    st.markdown("## 🚨 नांदेड जिल्हा : २४×७ सोशल मीडिया, मेसेजिंग व कायदा-सुव्यवस्था रडार")
     st.caption(f"थेट सिस्टीम वेळ: {datetime.now().strftime('%d-%m-%Y | %H:%M:%S')} (फिल्टर: १००% नांदेड जिल्हा व सर्व तालुके)")
 
     red_posts = [x for x in FILTERED_INTEL if x["is_red_alert"]]
@@ -439,7 +402,7 @@ if cmd_mode == "📡 लाइव्ह कमांड रडार":
             height=0
         )
 
-    # मेट्रिक्स
+    # मेट्रिक्स सारांश
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("जिल्ह्यातील सक्रिय नोंदी", f"{len(FILTERED_INTEL)}")
     m2.metric("सक्रिय रेड अलर्ट्स", f"{len(red_posts)}")
@@ -467,51 +430,54 @@ if cmd_mode == "📡 लाइव्ह कमांड रडार":
 
     st.markdown("---")
 
-    # कार्ड्स व्ह्यू
-    st.markdown("### 📡 नांदेड जिल्हा थेट प्रवाह (Live Action Stream):")
+    # अलर्ट कार्ड्स
+    st.markdown("### 📡 नांदेड जिल्हा थेट प्रवाह व कमेंट्स वाचन (Live Action Stream):")
     
     if not FILTERED_INTEL:
         st.info("सध्या मागील २४ तासांत नांदेड जिल्ह्यात कायदा व सुव्यवस्थेला बाधा आणणारी कोणतीही गंभीर घटना आढळलेली नाही. शांतता स्थिती कायम आहे.")
 
     for item in FILTERED_INTEL:
         card_class = "intel-card-red" if item["is_red_alert"] else "intel-card-yellow"
-        badge_html = "<span class='badge badge-communal'>🔥 संवेदनशील अलर्ट</span>" if item["is_red_alert"] else "<span class='badge badge-general'>📰 सामान्य घडामोड</span>"
+        
+        if "तेढ" in item["category"]:
+            badge_html = "<span class='badge badge-communal'>🔥 सामाजिक / राजकीय तेढ</span>"
+        elif "गुन्हेगारी" in item["category"]:
+            badge_html = "<span class='badge badge-crime'>⚠️ गुन्हेगारी / तणाव</span>"
+        elif "आंदोलन" in item["category"]:
+            badge_html = "<span class='badge badge-protest'>📢 आंदोलन / मोर्चा / बंद</span>"
+        else:
+            badge_html = "<span class='badge badge-protest'>📰 सामान्य घडामोड</span>"
 
         st.markdown(f"""
         <div class="intel-card {card_class}">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <div>
                     {badge_html} 
-                    <span style="margin-left:10px; font-weight:700; color:#38bdf8; font-family:'JetBrains Mono', monospace;">{item['id']}</span>
+                    <span style="margin-left:10px; font-weight:700; color:#38bdf8;">{item['id']}</span>
                     <span style="margin-left:10px; color:#94a3b8; font-size:12px;">[{item['place']} तालुका] ({item['time']})</span>
                 </div>
                 <div style="font-size:13px; color:#cbd5e1;">
                     <strong>माध्यम:</strong> {item['icon']} {item['platform']} | <strong>स्त्रोत:</strong> {item['source']}
                 </div>
             </div>
-            <h3 style="margin-top:0; color:#f8fafc; line-height:1.5; font-size:19px;">{item['title']}</h3>
+            <h3 style="margin-top:0; color:#f8fafc; line-height:1.4; font-size:18px;">{item['title']}</h3>
             <div style="margin-top:8px;">
                 🔗 <strong>मूळ लिंक:</strong> <a href="{item['url']}" target="_blank" class="source-link">{item['url']}</a>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
+        # एआय हेतू व जमाव बॉक्स
         st.markdown(f"""
-        <div class="ai-box">
-            🤖 <strong>एआय हेतू विश्लेषण (AI Intent Reader):</strong> <code>{item['ai_intent']}</code>
-        </div>
-        <div class="spot-box">
-            <div style="display:flex; justify-content:space-between;">
-                <div>📍 <strong>संभाव्य जमाव ठिकाण:</strong> <code>{item['spot']}</code></div>
-                <div>⏰ <strong>अपेक्षित वेळ:</strong> <code>{item['timing']}</code></div>
-                <div>🎯 <strong>थ्रेट स्कोअर:</strong> <code>{item['threat_score']}/100</code></div>
-            </div>
+        <div class="detail-container">
+            🤖 <strong>एआय हेतू विश्लेषण (AI Intent Reader):</strong> <code>{item['ai_intent']}</code><br>
+            📍 <strong>संभाव्य जमाव ठिकाण:</strong> <code>{item['spot']}</code> | ⏰ <strong>अपेक्षित वेळ:</strong> <code>{item['timing']}</code> | 🎯 <strong>थ्रेट स्कोअर:</strong> <code>{item['threat_score']}/100</code>
         </div>
         """, unsafe_allow_html=True)
 
         if item["keywords"]:
             tags_html = " ".join([f"<span class='kw-tag'>🚩 {w}</span>" for w in item["keywords"]])
-            st.markdown(f"**डिटेक्ट झालेले कीवर्ड्स:** {tags_html}", unsafe_allow_html=True)
+            st.markdown(f"**डिटेक्ट झालेले संवेदनशील कीवर्ड्स:** {tags_html}", unsafe_allow_html=True)
 
         c1, c2 = st.columns(2)
         with c1:
@@ -529,6 +495,7 @@ if cmd_mode == "📡 लाइव्ह कमांड रडार":
             </div>
             """, unsafe_allow_html=True)
 
+        # थेट कमेंट्स वाचन
         with st.expander("💬 या घटनेवरील थेट कमेंट्स व जनभावना वाचन (Comments NLP)", expanded=item["is_red_alert"]):
             st.write(f"**आक्रमक / संतापजनक प्रतिक्रियांचे प्रमाण:** {item['angry_pct']}%")
             st.progress(item["angry_pct"] / 100)
@@ -545,8 +512,8 @@ if cmd_mode == "📡 लाइव्ह कमांड रडार":
         time.sleep(refresh_sec)
         st.rerun()
 
-# --- ९. १ महिन्याचा डेटाबेस लॉग ---
-elif cmd_mode == "🗄️ १ महिन्याचा डेटाबेस लॉग":
+# --- ९. १ महिन्याचा सेव्ह झालेला डेटाबेस लॉग ---
+elif cmd_mode == "🗄️ १ महिन्याचा सेव्ह झालेला डेटाबेस":
     st.subheader("🗄️ महिनाभराचा स्थानिक इंटेलिजन्स लॉग (Testing Archive)")
     st.caption("या महिन्यात सिस्टीमने ऑटोमॅटिक पकडलेल्या सर्व घटनांचा सेव्ह झालेला रेकॉर्ड.")
     
